@@ -1,0 +1,17 @@
+{
+	"name": "comma-sense",
+	"version": "0.1.0",
+	"description": "A block variation of the core table block that syncs data from CSV files.",
+	"scripts": {
+		"build": "wp-scripts build",
+		"start": "wp-scripts start",
+		"lint:js": "wp-scripts lint-js src/",
+		"lint:css": "wp-scripts lint-style src/"
+	},
+	"devDependencies": {
+		"@wordpress/scripts": "^30.0.0"
+	},
+	"dependencies": {
+		"papaparse": "^5.4.1"
+	}
+}

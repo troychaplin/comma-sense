@@ -1,0 +1,33 @@
+.comma-sense-header-notice {
+	margin-bottom: 12px;
+}
+
+.comma-sense-file-info {
+	margin-bottom: 12px;
+
+	p {
+		margin: 0 0 8px;
+	}
+}
+
+.comma-sense-upload-btn {
+	width: 100%;
+	justify-content: center;
+	margin-top: 8px;
+}
+
+.comma-sense-pagination--editor {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+	padding: 8px 0;
+	flex-wrap: wrap;
+
+	.comma-sense-pagination__btn,
+	.comma-sense-pagination__page {
+		min-width: auto;
+		padding: 4px 8px;
+		font-size: 13px;
+	}
+}

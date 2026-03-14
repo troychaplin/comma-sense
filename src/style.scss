@@ -1,0 +1,45 @@
+.comma-sense-pagination {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+	padding: 16px 0;
+	flex-wrap: wrap;
+}
+
+.comma-sense-pagination__btn,
+.comma-sense-pagination__page {
+	padding: 6px 12px;
+	border: 1px solid #ddd;
+	background: #fff;
+	cursor: pointer;
+	font-size: 14px;
+	line-height: 1.4;
+	border-radius: 3px;
+	transition: background-color 0.15s ease;
+
+	&:hover:not(:disabled) {
+		background-color: #f0f0f0;
+	}
+
+	&:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+}
+
+.comma-sense-pagination__page--active {
+	background-color: #1e1e1e;
+	color: #fff;
+	border-color: #1e1e1e;
+
+	&:hover {
+		background-color: #1e1e1e;
+	}
+}
+
+.comma-sense-pagination__pages {
+	display: flex;
+	gap: 4px;
+	flex-wrap: wrap;
+}
