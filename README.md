@@ -1,3 +1,5 @@
+<img src="assets/banner-772x250.png" alt="Comma Sense plugin decorative banner" style="width: 100%; height: auto;">
+
 # Comma Sense
 
 A WordPress plugin that extends the core Table block with CSV data syncing. Upload a CSV file from the Media Library and Comma Sense keeps your table content in sync — no manual data entry required.
