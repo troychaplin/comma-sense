@@ -15,9 +15,9 @@
 
 # The CSV-syncing plugin for WordPress that your tables have been waiting for!
 
-<img src="assets/banner-772x250.png" alt="Comma Sense plugin decorative banner" style="width: 100%; height: auto;">
-
 > **"It just makes sense, dude."**
+
+<img src="assets/banner-772x250.png" alt="Comma Sense plugin decorative banner" style="width: 100%; height: auto;">
 
 ## Why Comma Sense?
 
