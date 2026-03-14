@@ -76,105 +76,248 @@ comma-sense/
 
 ### Phase 1: Plugin Scaffolding
 
-- [ ] Create `comma-sense.php` with plugin header, activation basics
-- [ ] Set up `package.json` with `@wordpress/scripts` and dependencies
-- [ ] Configure `src/index.js` as the entry point
-- [ ] Add build scripts (`npm run build`, `npm run start`)
-- [ ] Enqueue editor script and styles in PHP
+- [x] Create `comma-sense.php` with plugin header, activation basics
+- [x] Set up `package.json` with `@wordpress/scripts` and dependencies
+- [x] Configure `src/index.js` as the entry point
+- [x] Add build scripts (`npm run build`, `npm run start`)
+- [x] Enqueue editor script and styles in PHP
 
 ### Phase 2: Block Variation Registration
 
-- [ ] Register the variation via `wp.blocks.registerBlockVariation('core/table', {...})`
+- [x] Register the variation via `wp.blocks.registerBlockVariation('core/table', {...})`
   - `name`: `'comma-sense'`
   - `title`: `'Comma Sense'`
-  - `icon`: custom or modified table icon
+  - `icon`: `'editor-table'`
   - `description`: `'A table synced from a CSV data source.'`
   - `attributes`: default with header section enabled
-  - `isActive`: check for custom attribute `commaSenseCsvId` or a className
-- [ ] Extend `core/table` attributes using `blocks.registerBlockType` filter to add:
+  - `isActive`: check for `commaSenseVariation === true`
+- [x] Extend `core/table` attributes using `blocks.registerBlockType` filter to add:
   - `commaSenseCsvId` (number) — Media Library attachment ID
   - `commaSenseFileName` (string) — Display name for the linked file
-  - `commaSensePaginationEnabled` (boolean, default: `false`) — Toggle pagination on/off
+  - `commaSensePaginationEnabled` (boolean, default: `true`) — Toggle pagination on/off
   - `commaSenseRowsPerPage` (number, default: `25`) — Rows displayed per page
+  - `commaSenseVariation` (boolean, default: `false`) — Variation detection flag
 
 ### Phase 3: Header Accessibility Notice
 
-- [ ] Add `editor.BlockEdit` filter using `createHigherOrderComponent`
-- [ ] Detect if current block is the Comma Sense variation (check `commaSenseCsvId` or className)
-- [ ] When `attributes.head` is empty, display a `Notice` component (status: `"warning"`) inside the inspector panel advising that table headers improve accessibility and provide context for the data
-- [ ] Notice is dismissible but reappears if the header remains off and the block is re-selected
+- [x] Add `editor.BlockEdit` filter using `createHigherOrderComponent`
+- [x] Detect if current block is the Comma Sense variation (check `commaSenseVariation` attribute)
+- [x] When `attributes.head` is empty, display a `Notice` component (status: `"warning"`) inside the inspector panel advising that table headers improve accessibility and provide context for the data
+- [x] Notice is non-dismissible, renders conditionally when header is missing
 
 ### Phase 4: CSV Upload UI
 
-- [ ] Add `InspectorControls` panel titled "CSV Data Source" in the BlockEdit HOC
-- [ ] Use `MediaUpload` / `MediaUploadCheck` component for file selection
+- [x] Add `InspectorControls` panel titled "Comma Sense" in the BlockEdit HOC
+- [x] Use `MediaUpload` / `MediaUploadCheck` component for file selection
   - Filter to CSV mime type (`text/csv`)
-- [ ] On file select:
+- [x] On file select:
   - Store attachment ID in `commaSenseCsvId`
   - Store filename in `commaSenseFileName`
   - Fetch CSV content via REST API (`/wp/v2/media/{id}`)
   - Parse CSV and populate `head` and `body` attributes for editor preview
-- [ ] Display linked file info (name, upload date)
-- [ ] "Unlink" button to remove the CSV association
-- [ ] "Refresh" button to re-fetch and re-parse the CSV
+- [x] Display linked file info (name)
+- [x] "Unlink" button to remove the CSV association
+- [x] "Refresh" button to re-fetch and re-parse the CSV
 
 ### Phase 5: CSV Parsing (PHP)
 
-- [ ] Create `includes/class-csv-handler.php`
+- [x] Create `includes/class-csv-handler.php`
   - `parse( int $attachment_id ): array` — reads CSV, returns `['head' => [...], 'body' => [...]]`
   - Validate file exists and is CSV mime type
   - Handle encoding (UTF-8 BOM detection)
   - Handle edge cases (empty files, single column, quoted fields)
-- [ ] Implement transient caching
+- [x] Implement transient caching
   - Cache key: `comma_sense_{attachment_id}`
   - Invalidate when file modification time changes
   - Invalidate when attachment is updated/replaced
 
 ### Phase 6: Dynamic Frontend Rendering
 
-- [ ] Create `includes/render.php`
-- [ ] Hook into `render_block_core/table` filter
-- [ ] Check if block has `commaSenseCsvId` attribute set
-- [ ] If yes:
+- [x] Create `includes/render.php`
+- [x] Hook into `render_block` filter
+- [x] Check if block has `commaSenseCsvId` attribute set
+- [x] If yes:
   - Call `CSV_Handler::parse()` to get current data
   - Rebuild table HTML with `<thead>`, `<tbody>`, preserving block wrapper classes
   - Return the new HTML (replacing saved content)
-- [ ] If no: return original content unchanged (standard core/table behavior)
+- [x] If no: return original content unchanged (standard core/table behavior)
 
 ### Phase 7: CSV Parsing (JavaScript — Editor Side)
 
-- [ ] Add PapaParse as a dependency (`npm install papaparse`)
+- [x] Add PapaParse as a dependency (`npm install papaparse`)
   - Battle-tested CSV parsing library, handles quoted fields, newlines in cells, BOM, encoding edge cases
   - Already supports multiple delimiters (comma, tab, pipe, etc.) which sets us up for future delimiter expansion
-- [ ] On CSV select/refresh:
+- [x] On CSV select/refresh:
   - Fetch the file URL from media attachment data
   - Parse CSV content using PapaParse
   - First row → `head` attribute (array of header cells)
   - Remaining rows → `body` attribute (array of body rows)
   - Update block attributes to show preview
 
-### Phase 8: Pagination
+### Phase 8: Pagination (Core)
 
-- [ ] Add custom attributes to `core/table` via the `blocks.registerBlockType` filter:
-  - `commaSensePaginationEnabled` (boolean, default: `false`)
+- [x] Add custom attributes to `core/table` via the `blocks.registerBlockType` filter:
+  - `commaSensePaginationEnabled` (boolean, default: `true`)
   - `commaSenseRowsPerPage` (number, default: `25`)
-- [ ] **Editor UI:** Add pagination controls in the inspector panel ("CSV Data Source" panel)
+- [x] **Editor UI:** Add pagination controls in the inspector panel ("CSV Data Source" panel)
   - Toggle to enable/disable pagination
-  - Number input for rows per page (options: 10, 25, 50, 100, or custom)
-  - Editor preview shows the full table (no pagination in editor) so the user can review all data
-- [ ] **Frontend rendering (PHP):**
-  - When pagination is enabled, render only the first page of rows in the initial HTML
-  - Include a `data-pagination` attribute on the table wrapper with config (total rows, rows per page)
-  - Render pagination controls (Previous / page numbers / Next) below the table
-- [ ] **Frontend JavaScript:**
-  - Enqueue a small vanilla JS file (no jQuery) only when pagination is active
-  - Handles page navigation by showing/hiding table rows client-side
-  - All rows are present in the DOM (rendered by PHP) but hidden via CSS — this keeps it simple and avoids AJAX for now
-  - Updates the pagination controls (active page, disabled prev/next) on interaction
-  - Preserves accessibility: pagination controls use `<nav>`, `aria-label`, and `aria-current` attributes
-- [ ] **Styles:**
-  - Add pagination styles in `style.scss` (loaded on both editor and frontend)
-  - Basic styling: page numbers, active state, disabled state, responsive layout
+  - Number input for rows per page (min: 2, max: 100)
+  - Editor preview shows live pagination below the table with Previous/Next buttons and page number buttons
+  - Auto-resets to page 1 when settings change
+  - Smooth scroll to table top on page change
+- [x] **Frontend rendering (PHP):**
+  - All rows rendered in the DOM with `data-row-index` attributes
+  - Rows beyond the first page hidden with `style="display:none" aria-hidden="true"`
+  - Pagination nav rendered with `data-total-rows`, `data-rows-per-page`, `data-total-pages` config attributes
+  - Previous / page numbers / Next controls with proper ARIA
+  - Performance safeguard: force-enables pagination if rows exceed 100, caps rows-per-page at 100
+- [x] **Frontend JavaScript:**
+  - Vanilla JS (no dependencies), only enqueued when pagination is rendered
+  - Handles page navigation by toggling row visibility client-side
+  - Updates button states (disabled, active, `aria-current`) on interaction
+  - Smooth scroll to table top on page change
+- [x] **Styles:**
+  - Frontend styles in `style.scss` — flex layout, active/disabled states, hover transitions
+  - Editor styles in `editor.scss` — compact button sizing for preview
+
+### Phase 9: Pagination Style Options
+
+Match the display options available on `core/query-pagination` and its child blocks (`query-pagination-previous`, `query-pagination-next`, `query-pagination-numbers`).
+
+#### New Attributes
+
+Add to `core/table` via the `blocks.registerBlockType` filter in `src/index.js`:
+
+| Attribute | Type | Default | Purpose |
+|-----------|------|---------|---------|
+| `commaSensePaginationArrow` | string | `"none"` | Arrow style on prev/next buttons: `"none"`, `"arrow"` (→/←), `"chevron"` (»/«) |
+| `commaSenseShowLabel` | boolean | `true` | Show/hide "Previous"/"Next" text labels on prev/next buttons |
+| `commaSensePrevLabel` | string | `""` | Custom previous button text (fallback: "Previous") |
+| `commaSenseNextLabel` | string | `""` | Custom next button text (fallback: "Next") |
+| `commaSenseMidSize` | number | `2` | Number of page numbers to show on each side of the current page |
+
+All defaults match current behavior — no arrows, labels shown, all page numbers visible — so existing blocks are unaffected.
+
+#### Arrow Style
+
+Controls decorative arrow characters prepended/appended to the Previous/Next buttons.
+
+- `"none"` — No arrows (current behavior)
+- `"arrow"` — `←` Previous / Next `→`
+- `"chevron"` — `«` Previous / Next `»`
+
+Mirrors `core/query-pagination`'s `paginationArrow` attribute.
+
+#### Show Label
+
+When `true` (default), the Previous/Next buttons display their text labels.
+When `false`, the text labels are hidden and only arrows are shown.
+
+**Guard rail:** If `showLabel` is `false` and `paginationArrow` is `"none"`, force arrows on (or disable the label toggle) so buttons are never empty.
+
+Mirrors `core/query-pagination`'s `showLabel` attribute.
+
+#### Custom Labels
+
+Allow users to override the default "Previous" and "Next" text.
+
+- `commaSensePrevLabel`: when empty, falls back to "Previous"
+- `commaSenseNextLabel`: when empty, falls back to "Next"
+
+These fields are only visible in the inspector when `showLabel` is `true`.
+
+Mirrors `core/query-pagination-previous`'s `label` and `core/query-pagination-next`'s `label` attributes.
+
+#### Mid-Size (Page Number Truncation)
+
+Controls how many page numbers appear on each side of the current page. For a table with 20 pages and `midSize: 2`, on page 6:
+
+```
+[← Prev]  1 … 4 5 [6] 7 8 … 20  [Next →]
+```
+
+Rules:
+- Always show the first and last page numbers
+- Show `midSize` pages on each side of the current page
+- Show `…` ellipsis to indicate gaps
+- If the window overlaps with first/last page, collapse gracefully (no ellipsis needed)
+- When `midSize` is `0`, only show the current page (plus first/last)
+
+Mirrors `core/query-pagination-numbers`'s `midSize` attribute.
+
+#### Files That Change
+
+**`src/index.js`**
+- Register the 5 new attributes with their defaults
+
+**`src/editor.js`** — Two areas:
+
+1. **Inspector Controls** — Add to the existing Pagination `ToolsPanel`:
+   - `SelectControl` for arrow style (None / Arrow / Chevron)
+   - `ToggleControl` for show/hide labels
+   - `TextControl` for custom prev label (conditionally visible when `showLabel` is `true`)
+   - `TextControl` for custom next label (conditionally visible when `showLabel` is `true`)
+   - `NumberControl` for mid-size (min: 0, max: 5)
+   - Update the reset function to include new defaults
+
+2. **Editor Preview Pagination** — Update the HOC's pagination rendering:
+   - Prev/Next buttons: prepend/append arrow characters based on `paginationArrow`
+   - Prev/Next buttons: hide label text when `showLabel` is `false`
+   - Page number buttons: render with mid-size truncation logic
+   - Ellipsis rendered as non-interactive `<span>` elements
+
+**`includes/render.php`** — Update frontend HTML output:
+- Read the 5 new attributes from block attrs (with defaults)
+- Render prev/next button content with arrow characters and conditional label text
+- Apply mid-size truncation when generating page buttons
+- Add `<span class="comma-sense-pagination__ellipsis">…</span>` for gaps
+- Pass mid-size value as `data-mid-size` attribute on the nav for JS use
+
+**`src/pagination.js`** — Frontend JS updates:
+- Read `data-mid-size` from the pagination nav
+- Update `showPage()` to regenerate page button HTML when the current page changes (the visible window shifts with the user)
+- Mid-size truncation algorithm: calculate which page numbers to show, insert ellipsis spans, rebuild the `.comma-sense-pagination__pages` container
+- Read arrow/label config from button content (already rendered by PHP, just needs active state management)
+
+**`src/style.scss`** — Additions:
+- `.comma-sense-pagination__ellipsis` — non-clickable, no border/background, matches button spacing
+- Arrow-only button adjustments (tighter min-width when labels are hidden)
+
+**`src/editor.scss`** — Mirror new frontend styles for the editor preview
+
+#### Mid-Size Algorithm (shared across PHP, JS, React)
+
+The same logic is needed in three places. The algorithm:
+
+```
+function getVisiblePages(currentPage, totalPages, midSize):
+    pages = Set()
+
+    // Always include first and last
+    pages.add(1)
+    pages.add(totalPages)
+
+    // Include window around current page
+    start = max(1, currentPage - midSize)
+    end = min(totalPages, currentPage + midSize)
+    for i in range(start, end + 1):
+        pages.add(i)
+
+    // Sort and return
+    return sorted(pages)
+```
+
+When rendering, iterate the sorted list. If the gap between consecutive entries is > 1, insert an ellipsis.
+
+#### Implementation Steps
+
+- [ ] Register the 5 new attributes in `src/index.js`
+- [ ] Add inspector controls for arrow style, show label, custom labels, and mid-size in `src/editor.js`
+- [ ] Update editor preview pagination to respect arrow style, label visibility, and mid-size truncation
+- [ ] Update `includes/render.php` to render prev/next with arrows/labels and page numbers with mid-size truncation
+- [ ] Update `src/pagination.js` to regenerate page buttons with mid-size logic on page change
+- [ ] Add ellipsis and arrow-only styles to `src/style.scss` and `src/editor.scss`
+- [ ] Test edge cases: single page, 2 pages, mid-size larger than total pages, arrow-only mode, label toggle guard rail
 
 ---
 

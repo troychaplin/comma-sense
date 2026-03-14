@@ -39,6 +39,10 @@ addFilter(
 					type: 'number',
 					default: 25,
 				},
+				commaSenseVariation: {
+					type: 'boolean',
+					default: false,
+				},
 			},
 		};
 	}
@@ -53,6 +57,7 @@ registerBlockVariation( 'core/table', {
 	description: 'A table synced from a CSV data source.',
 	icon: 'editor-table',
 	attributes: {
+		commaSenseVariation: true,
 		commaSenseCsvId: 0,
 		head: [
 			{
@@ -65,6 +70,6 @@ registerBlockVariation( 'core/table', {
 		],
 	},
 	isActive: ( blockAttributes ) => {
-		return blockAttributes.commaSenseCsvId > 0;
+		return blockAttributes.commaSenseVariation === true;
 	},
 } );

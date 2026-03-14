@@ -334,7 +334,7 @@ function CsvDataSourcePanel( { attributes, setAttributes } ) {
 const withCsvInspectorControls = createHigherOrderComponent(
 	( BlockEdit ) => {
 		return ( props ) => {
-			if ( props.name !== 'core/table' ) {
+			if ( props.name !== 'core/table' || ! props.attributes.commaSenseVariation ) {
 				return <BlockEdit { ...props } />;
 			}
 
