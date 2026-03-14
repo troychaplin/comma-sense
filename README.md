@@ -1,71 +1,135 @@
 <img src="assets/banner-772x250.png" alt="Comma Sense plugin decorative banner" style="width: 100%; height: auto;">
 
-# Comma Sense
+# ▓▓▓ COMMA SENSE ▓▓▓
+### *The radical CSV-syncing plugin for WordPress that your tables have been waiting for.*
 
-A WordPress plugin that extends the core Table block with CSV data syncing. Upload a CSV file from the Media Library and Comma Sense keeps your table content in sync — no manual data entry required.
+```
+ ██████╗ ██████╗ ███╗   ███╗███╗   ███╗ █████╗
+██╔════╝██╔═══██╗████╗ ████║████╗ ████║██╔══██╗
+██║     ██║   ██║██╔████╔██║██╔████╔██║███████║
+██║     ██║   ██║██║╚██╔╝██║██║╚██╔╝██║██╔══██║
+╚██████╗╚██████╔╝██║ ╚═╝ ██║██║ ╚═╝ ██║██║  ██║
+ ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝╚═╝  ╚═╝
+███████╗███████╗███╗   ██╗███████╗███████╗
+██╔════╝██╔════╝████╗  ██║██╔════╝██╔════╝
+███████╗█████╗  ██╔██╗ ██║███████╗█████╗
+╚════██║██╔══╝  ██║╚██╗██║╚════██║██╔══╝
+███████║███████╗██║ ╚████║███████║███████╗
+╚══════╝╚══════╝╚═╝  ╚═══╝╚══════╝╚══════╝
+```
 
-## Why Comma Sense?
+> **"It just makes sense, dude."**
 
-Managing table data in the WordPress editor is tedious, especially for large datasets. Comma Sense bridges the gap between your data and the block editor by letting you link a CSV file directly to a core Table block. When your data changes, refresh the connection and the table updates instantly.
+---
 
-## Features
+## 🕹️ WHAT IS THIS GNARLY THING?
 
-### CSV Data Syncing
+Yo. You know what's totally NOT tubular? Manually entering table data in WordPress. Row. By. Row. Like some kind of digital cave person.
 
-Link any CSV file from the WordPress Media Library to a core Table block. The first row of your CSV automatically becomes the table header, and the remaining rows populate the table body. Need to update the data? Upload a new CSV or hit refresh — the table updates in both the editor and the frontend.
+Comma Sense is here to save you from that bogus nightmare. Link a CSV straight from your Media Library to a core Table block and **BOOM** — your data is *live*, baby. Change the CSV, hit refresh, watch your table update like magic. Totally excellent.
 
-### Built on Core
+No custom blocks. No weird markup. No drama. Just pure, unadulterated data sync that would make any 1985 hacker weep with joy.
 
-Comma Sense is a block variation of `core/table`, not a custom block. This means full compatibility with all existing table features: alignment options (wide, full-width), color settings, fixed layout, and any theme styles that target the core Table block. Your tables look and behave exactly as expected.
+---
 
-### Pagination
+## 🌟 FEATURES — THIS THING IS STACKED
 
-Large tables are automatically paginated to keep your pages fast and readable. Pagination is enabled by default with a configurable number of rows per page. Tables are capped at 100 visible rows per page for performance — if pagination is disabled and the dataset exceeds 100 rows, pagination is automatically re-enabled.
+### 📼 CSV Data Syncing — *Totally Radical*
 
-### Accessible by Default
+Point Comma Sense at any CSV in your Media Library and watch it go to work. First row becomes your header. Everything else fills the table. Update your data? Just upload a fresh CSV or slam that **Refresh** button. The table updates in the editor *and* on the frontend. No re-saving posts. No sweat. No problemo.
 
-Comma Sense promotes accessible table markup out of the box. CSV headers are rendered as proper `<th>` elements with `scope="col"` attributes. When a table is missing headers, an informational notice appears in the editor to guide content authors toward better accessibility practices.
+### 🏗️ Built on Core — *Plays Well With Others*
 
-### Dynamic Rendering
+Comma Sense isn't some rogue custom block trying to take over your installation. It's a **block variation** of `core/table`, which means it gets along with everything:
 
-Table data is rendered dynamically on the frontend from the linked CSV file, with server-side transient caching for performance. This means the displayed data always reflects the current state of the CSV — no need to re-save posts when your data changes upstream.
+- ✅ Wide & full-width alignment
+- ✅ Color settings
+- ✅ Fixed layout
+- ✅ All your theme styles
 
-## Requirements
+Your tables look exactly like they should. Because they *are* exactly what they should be.
 
-- WordPress 6.4+
-- PHP 7.4+
+### 📟 Pagination — *For Those Gnarly Big Datasets*
 
-## Installation
+Got a thousand rows of data? Comma Sense has got your back. Tables paginate automatically so your pages stay fast and your readers stay sane. Rows per page? Configurable. Tables capped at 100 rows per page for maximum performance. Try to go over 100 without pagination? We'll flip it back on. You're welcome.
+
+### ♿ Accessible by Default — *Because Everyone Deserves to Party*
+
+CSV headers render as proper `<th>` elements with `scope="col"`. It's not just the right thing to do — it's the *only* thing to do. Missing headers? Comma Sense drops an informational notice right in the editor to keep your content authors on the straight and narrow. Righteous.
+
+### ⚡ Dynamic Rendering — *Live From the Server*
+
+Table data renders dynamically on the frontend, pulled fresh from the linked CSV with server-side transient caching for speed. The data you see is always the *real* data. No stale tables. No republishing posts every time a spreadsheet changes. Just the truth, the whole truth, and nothing but the truth.
+
+---
+
+## 💾 SYSTEM REQUIREMENTS
+
+```
+┌─────────────────────────────────────┐
+│  MINIMUM SPECS TO RUN THIS BAD BOY  │
+├─────────────────────────────────────┤
+│  WordPress   ►  6.4 or higher       │
+│  PHP         ►  7.4 or higher       │
+│  Rad Factor  ►  Maximum             │
+└─────────────────────────────────────┘
+```
+
+---
+
+## 📦 INSTALLATION — LET'S DO THIS
 
 1. Upload the `comma-sense` folder to `/wp-content/plugins/`
-2. Activate the plugin through the WordPress admin
-3. Add a Table block (or the Comma Sense variation) in the block editor
+2. Activate through the WordPress admin like the power user you are
+3. Drop a Table block (or the Comma Sense variation) in the editor
+4. **ENGAGE**
 
-## Usage
+---
 
-1. Select a Table block in the editor
-2. Open the **Comma Sense** panel in the block inspector sidebar
-3. Click **Upload CSV** and select a CSV file from the Media Library
-4. The table populates automatically with your CSV data
-5. Adjust **Rows per page** or toggle pagination as needed
-6. Use the **Refresh** button anytime to re-sync data from the linked CSV
-7. Use **Unlink** to disconnect the CSV and return to a standard table
+## 🕹️ USAGE — YOUR QUEST BEGINS HERE
 
-## Development
+```
+STAGE 1 ► Select a Table block in the editor
+STAGE 2 ► Open the [COMMA SENSE] panel in the block sidebar
+STAGE 3 ► Hit [UPLOAD CSV] and choose your file from the Media Library
+STAGE 4 ► Watch your table fill up like magic — !!BONUS POINTS!!
+STAGE 5 ► Set your [ROWS PER PAGE] or toggle pagination
+STAGE 6 ► Use [REFRESH] anytime to re-sync from the CSV
+STAGE 7 ► Use [UNLINK] to cut the cord and go back to a standard table
 
-Built with [`@wordpress/scripts`](https://developer.wordpress.org/block-editor/reference-guides/packages/packages-scripts/) and [PapaParse](https://www.papaparse.com/) for CSV parsing.
+                    *** YOU WIN ***
+```
+
+---
+
+## 🔧 DEVELOPMENT — FOR THE CODE WARRIORS
+
+Built with [`@wordpress/scripts`](https://developer.wordpress.org/block-editor/reference-guides/packages/packages-scripts/) and [PapaParse](https://www.papaparse.com/) — the most excellent CSV parsing library in the known universe.
 
 ```bash
-# Install dependencies
+# Load up your gear
 npm install
 
-# Start development build with watch mode
+# Fire up dev mode — watch the magic happen
 npm start
 
-# Production build
+# Ship it to production, hero
 npm run build
 ```
 
-## License
+---
 
-GPL-2.0-or-later
+## 📜 LICENSE
+
+**GPL-2.0-or-later** — Free as in freedom. Free as in *tubular*.
+
+---
+
+```
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░  COMMA SENSE — MAKING TABLES GREAT AGAIN        ░
+░  © This Decade  |  Made with ♥ and CSV Files   ░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+```
+
+*Now go forth and sync some data, you radical human.*
