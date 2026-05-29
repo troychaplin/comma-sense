@@ -6,10 +6,17 @@
 
 import { createHigherOrderComponent } from '@wordpress/compose';
 import { addFilter } from '@wordpress/hooks';
-import { InspectorControls } from '@wordpress/block-editor';
+import {
+	InspectorControls,
+	MediaUpload,
+	MediaUploadCheck,
+	MediaPlaceholder,
+	useBlockProps,
+} from '@wordpress/block-editor';
 import {
 	Button,
 	Notice,
+	Placeholder,
 	ToggleControl,
 	__experimentalNumberControl as NumberControl,
 	__experimentalToolsPanel as ToolsPanel,
@@ -18,7 +25,6 @@ import {
 	Flex,
 	FlexItem,
 } from '@wordpress/components';
-import { MediaUpload, MediaUploadCheck } from '@wordpress/block-editor';
 import { useState, useCallback, useEffect, useRef } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import Papa from 'papaparse';
@@ -61,7 +67,85 @@ function parseCsvToTableAttributes( csvText ) {
 }
 
 /**
- * CSV Data Source panel component.
+ * Fetch a CSV attachment from the REST API and parse it into table attributes.
+ *
+ * @param {number} attachmentId Media Library attachment ID.
+ * @return {{ parsed: Object, fileName: string }}
+ */
+async function fetchCsvData( attachmentId ) {
+	const response = await wp.apiFetch( {
+		path: `/wp/v2/media/${ attachmentId }`,
+	} );
+
+	const csvResponse = await fetch( response.source_url );
+	const csvText = await csvResponse.text();
+	const parsed = parseCsvToTableAttributes( csvText );
+
+	if ( ! parsed ) {
+		throw new Error( __( 'Could not parse CSV file.', 'comma-sense' ) );
+	}
+
+	return {
+		parsed,
+		fileName: response.title?.rendered || '',
+	};
+}
+
+/**
+ * Placeholder shown when no CSV is linked yet.
+ *
+ * Calls useBlockProps() so the editor can track this element for selection,
+ * focus, and block spacing — the same role useBlockProps() plays inside
+ * the core/table BlockEdit when the table is rendered.
+ */
+function CommaSensePlaceholder( { onSelect, isLoading, error, onDismissError } ) {
+	const blockProps = useBlockProps();
+
+	if ( isLoading ) {
+		return (
+			<div { ...blockProps }>
+				<Placeholder
+					icon="editor-table"
+					label={ __( 'Comma Sense', 'comma-sense' ) }
+				>
+					<Spinner />
+				</Placeholder>
+			</div>
+		);
+	}
+
+	return (
+		<div { ...blockProps }>
+			<MediaPlaceholder
+				icon="editor-table"
+				labels={ {
+					title: __( 'Comma Sense', 'comma-sense' ),
+					instructions: __(
+						'Upload a CSV file or select one from your media library.',
+						'comma-sense'
+					),
+				} }
+				onSelect={ onSelect }
+				allowedTypes={ [ 'text/csv' ] }
+				accept="text/csv,.csv"
+				notices={
+					error ? (
+						<Notice
+							status="error"
+							isDismissible
+							onDismiss={ onDismissError }
+						>
+							{ error }
+						</Notice>
+					) : undefined
+				}
+			/>
+		</div>
+	);
+}
+
+/**
+ * CSV Data Source panel component (shown in the block inspector when a CSV is linked).
  */
 function CsvDataSourcePanel( { attributes, setAttributes } ) {
 	const {
@@ -78,41 +162,24 @@ function CsvDataSourcePanel( { attributes, setAttributes } ) {
 	const hasHeader = Array.isArray( head ) && head.length > 0;
 	const hasCsv = commaSenseCsvId > 0;
 
-	/**
-	 * Fetch and parse a CSV from its media attachment.
-	 */
 	const fetchAndParseCsv = useCallback(
 		async ( attachmentId, fileName ) => {
 			setIsLoading( true );
 			setError( '' );
 
 			try {
-				const response = await wp.apiFetch( {
-					path: `/wp/v2/media/${ attachmentId }`,
-				} );
-
-				const fileUrl = response.source_url;
-				const csvResponse = await fetch( fileUrl );
-				const csvText = await csvResponse.text();
-				const parsed = parseCsvToTableAttributes( csvText );
-
-				if ( ! parsed ) {
-					setError(
-						__( 'Could not parse CSV file.', 'comma-sense' )
-					);
-					setIsLoading( false );
-					return;
-				}
-
+				const { parsed, fileName: fetchedName } =
+					await fetchCsvData( attachmentId );
 				setAttributes( {
 					commaSenseCsvId: attachmentId,
-					commaSenseFileName: fileName || response.title?.rendered || '',
+					commaSenseFileName: fileName || fetchedName,
 					head: parsed.head,
 					body: parsed.body,
 				} );
 			} catch ( err ) {
 				setError(
-					__( 'Failed to load CSV file.', 'comma-sense' )
+					err.message ||
+						__( 'Failed to load CSV file.', 'comma-sense' )
 				);
 			}
 
@@ -283,7 +350,9 @@ function CsvDataSourcePanel( { attributes, setAttributes } ) {
 
 				<ToolsPanelItem
 					label={ __( 'Pagination', 'comma-sense' ) }
-					hasValue={ () => ! paginationActive || commaSenseRowsPerPage !== 25 }
+					hasValue={ () =>
+						! paginationActive || commaSenseRowsPerPage !== 25
+					}
 					onDeselect={ resetPagination }
 					isShownByDefault
 				>
@@ -328,152 +397,207 @@ function CsvDataSourcePanel( { attributes, setAttributes } ) {
 }
 
 /**
- * Wrap the core/table BlockEdit component to add our inspector controls
- * and editor-side pagination.
+ * Inner component for the Comma Sense block edit view.
+ *
+ * Extracted from the HOC so hooks are called unconditionally before any
+ * early returns (Rules of Hooks). useBlockProps() is NOT called here —
+ * CommaSensePlaceholder owns it in placeholder state, and BlockEdit owns it
+ * in table state.
+ */
+function CommaTableEdit( { BlockEdit, ...props } ) {
+	const {
+		commaSenseCsvId,
+		commaSensePaginationEnabled,
+		commaSenseRowsPerPage,
+		body,
+	} = props.attributes;
+
+	const [ currentPage, setCurrentPage ] = useState( 1 );
+	const [ isPlaceholderLoading, setIsPlaceholderLoading ] =
+		useState( false );
+	const [ placeholderError, setPlaceholderError ] = useState( '' );
+	const initialPageRef = useRef( true );
+
+	// Scroll to top of block when page changes (skip initial render).
+	useEffect( () => {
+		if ( initialPageRef.current ) {
+			initialPageRef.current = false;
+			return;
+		}
+		const blockEl = document.getElementById( 'block-' + props.clientId );
+		if ( blockEl ) {
+			const blockTop =
+				blockEl.getBoundingClientRect().top + window.scrollY - 20;
+			window.scrollTo( { top: blockTop, behavior: 'smooth' } );
+		}
+	}, [ currentPage, props.clientId ] );
+
+	const onPlaceholderSelect = useCallback(
+		async ( media ) => {
+			if ( ! media?.id ) {
+				return;
+			}
+			setIsPlaceholderLoading( true );
+			setPlaceholderError( '' );
+			try {
+				const { parsed, fileName: fetchedName } = await fetchCsvData(
+					media.id
+				);
+				props.setAttributes( {
+					commaSenseCsvId: media.id,
+					commaSenseFileName:
+						media.filename || media.title || fetchedName,
+					head: parsed.head,
+					body: parsed.body,
+				} );
+			} catch ( err ) {
+				setPlaceholderError(
+					err.message ||
+						__( 'Failed to load CSV file.', 'comma-sense' )
+				);
+			}
+			setIsPlaceholderLoading( false );
+		},
+		[ props.setAttributes ]
+	);
+
+	const maxRows = 100;
+	const totalRows = Array.isArray( body ) ? body.length : 0;
+	const isPaginationActive = commaSensePaginationEnabled !== false;
+
+	const forcePagination = ! isPaginationActive && totalRows > maxRows;
+	const effectiveRowsPerPage = forcePagination
+		? maxRows
+		: Math.min( commaSenseRowsPerPage || 25, maxRows );
+	const showPagination =
+		( isPaginationActive || forcePagination ) &&
+		totalRows > effectiveRowsPerPage;
+	const totalPages = Math.max(
+		1,
+		Math.ceil( totalRows / effectiveRowsPerPage )
+	);
+
+	// Reset to page 1 when pagination settings change.
+	useEffect( () => {
+		setCurrentPage( 1 );
+	}, [ isPaginationActive, effectiveRowsPerPage, totalRows ] );
+
+	// --- Placeholder: shown until a CSV is linked ---
+	// CommaSensePlaceholder calls useBlockProps() so the editor can track
+	// this element for selection and apply block spacing.
+	if ( ! commaSenseCsvId ) {
+		return (
+			<CommaSensePlaceholder
+				onSelect={ onPlaceholderSelect }
+				isLoading={ isPlaceholderLoading }
+				error={ placeholderError }
+				onDismissError={ () => setPlaceholderError( '' ) }
+			/>
+		);
+	}
+
+	// --- CSV linked: render table + editor pagination + inspector ---
+
+	// Slice the body for the editor preview.
+	const editProps = { ...props };
+	if ( Array.isArray( body ) ) {
+		let slicedBody = body;
+		if ( showPagination ) {
+			const start = ( currentPage - 1 ) * effectiveRowsPerPage;
+			const end = start + effectiveRowsPerPage;
+			slicedBody = body.slice( start, end );
+		} else if ( body.length > maxRows ) {
+			slicedBody = body.slice( 0, maxRows );
+		}
+		if ( slicedBody !== body ) {
+			editProps.attributes = {
+				...props.attributes,
+				body: slicedBody,
+			};
+		}
+	}
+
+	return (
+		<>
+			<BlockEdit { ...editProps } />
+			{ showPagination && (
+				<nav
+					className="comma-sense-pagination comma-sense-pagination--editor"
+					aria-label={ __(
+						'Table pagination',
+						'comma-sense'
+					) }
+				>
+					<Button
+						className="comma-sense-pagination__btn comma-sense-pagination__prev"
+						disabled={ currentPage === 1 }
+						onClick={ () =>
+							setCurrentPage( ( p ) => p - 1 )
+						}
+						aria-label={ __(
+							'Previous page',
+							'comma-sense'
+						) }
+					>
+						{ __( 'Previous', 'comma-sense' ) }
+					</Button>
+					<span className="comma-sense-pagination__pages">
+						{ Array.from(
+							{ length: totalPages },
+							( _, i ) => i + 1
+						).map( ( page ) => (
+							<Button
+								key={ page }
+								className={ `comma-sense-pagination__page${
+									page === currentPage
+										? ' comma-sense-pagination__page--active'
+										: ''
+								}` }
+								onClick={ () => setCurrentPage( page ) }
+								aria-current={
+									page === currentPage
+										? 'page'
+										: undefined
+								}
+							>
+								{ page }
+							</Button>
+						) ) }
+					</span>
+					<Button
+						className="comma-sense-pagination__btn comma-sense-pagination__next"
+						disabled={ currentPage === totalPages }
+						onClick={ () =>
+							setCurrentPage( ( p ) => p + 1 )
+						}
+						aria-label={ __( 'Next page', 'comma-sense' ) }
+					>
+						{ __( 'Next', 'comma-sense' ) }
+					</Button>
+				</nav>
+			) }
+			<CsvDataSourcePanel
+				attributes={ props.attributes }
+				setAttributes={ props.setAttributes }
+			/>
+		</>
+	);
+}
+
+/**
+ * Wrap the core/table BlockEdit component to add Comma Sense behaviour.
  */
 const withCsvInspectorControls = createHigherOrderComponent(
 	( BlockEdit ) => {
 		return ( props ) => {
-			if ( props.name !== 'core/table' || ! props.attributes.commaSenseVariation ) {
+			if (
+				props.name !== 'core/table' ||
+				! props.attributes.commaSenseVariation
+			) {
 				return <BlockEdit { ...props } />;
 			}
 
-			const {
-				commaSensePaginationEnabled,
-				commaSenseRowsPerPage,
-				body,
-			} = props.attributes;
-
-			const [ currentPage, setCurrentPage ] = useState( 1 );
-			const initialPageRef = useRef( true );
-
-			// Scroll to top of block when page changes (skip initial render).
-			useEffect( () => {
-				if ( initialPageRef.current ) {
-					initialPageRef.current = false;
-					return;
-				}
-				const blockEl = document.getElementById( 'block-' + props.clientId );
-				if ( blockEl ) {
-					const blockTop = blockEl.getBoundingClientRect().top + window.scrollY - 20;
-					window.scrollTo( { top: blockTop, behavior: 'smooth' } );
-				}
-			}, [ currentPage, props.clientId ] );
-
-			const maxRows = 100;
-			const totalRows = Array.isArray( body ) ? body.length : 0;
-			const isPaginationActive =
-				commaSensePaginationEnabled !== false;
-
-			// Force pagination when rows exceed 100, even if toggle is off.
-			const forcePagination =
-				! isPaginationActive && totalRows > maxRows;
-			const effectiveRowsPerPage = forcePagination
-				? maxRows
-				: Math.min( commaSenseRowsPerPage || 25, maxRows );
-			const showPagination =
-				( isPaginationActive || forcePagination ) &&
-				totalRows > effectiveRowsPerPage;
-			const totalPages = Math.max(
-				1,
-				Math.ceil( totalRows / effectiveRowsPerPage )
-			);
-
-			// Reset to page 1 when settings change.
-			useEffect( () => {
-				setCurrentPage( 1 );
-			}, [ isPaginationActive, effectiveRowsPerPage, totalRows ] );
-
-			// Slice the body for the editor preview.
-			const editProps = { ...props };
-			if ( Array.isArray( body ) ) {
-				let slicedBody = body;
-				if ( showPagination ) {
-					const start =
-						( currentPage - 1 ) * effectiveRowsPerPage;
-					const end = start + effectiveRowsPerPage;
-					slicedBody = body.slice( start, end );
-				} else if ( body.length > maxRows ) {
-					slicedBody = body.slice( 0, maxRows );
-				}
-				if ( slicedBody !== body ) {
-					editProps.attributes = {
-						...props.attributes,
-						body: slicedBody,
-					};
-				}
-			}
-
-			return (
-				<>
-					<BlockEdit { ...editProps } />
-					{ showPagination && (
-						<nav
-							className="comma-sense-pagination comma-sense-pagination--editor"
-							aria-label={ __(
-								'Table pagination',
-								'comma-sense'
-							) }
-						>
-							<Button
-								className="comma-sense-pagination__btn comma-sense-pagination__prev"
-								disabled={ currentPage === 1 }
-								onClick={ () =>
-									setCurrentPage( ( p ) => p - 1 )
-								}
-								aria-label={ __(
-									'Previous page',
-									'comma-sense'
-								) }
-							>
-								{ __( 'Previous', 'comma-sense' ) }
-							</Button>
-							<span className="comma-sense-pagination__pages">
-								{ Array.from(
-									{ length: totalPages },
-									( _, i ) => i + 1
-								).map( ( page ) => (
-									<Button
-										key={ page }
-										className={ `comma-sense-pagination__page${
-											page === currentPage
-												? ' comma-sense-pagination__page--active'
-												: ''
-										}` }
-										onClick={ () =>
-											setCurrentPage( page )
-										}
-										aria-current={
-											page === currentPage
-												? 'page'
-												: undefined
-										}
-									>
-										{ page }
-									</Button>
-								) ) }
-							</span>
-							<Button
-								className="comma-sense-pagination__btn comma-sense-pagination__next"
-								disabled={ currentPage === totalPages }
-								onClick={ () =>
-									setCurrentPage( ( p ) => p + 1 )
-								}
-								aria-label={ __(
-									'Next page',
-									'comma-sense'
-								) }
-							>
-								{ __( 'Next', 'comma-sense' ) }
-							</Button>
-						</nav>
-					) }
-					<CsvDataSourcePanel
-						attributes={ props.attributes }
-						setAttributes={ props.setAttributes }
-					/>
-				</>
-			);
+			return <CommaTableEdit BlockEdit={ BlockEdit } { ...props } />;
 		};
 	},
 	'withCsvInspectorControls'
