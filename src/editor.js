@@ -14,22 +14,33 @@ import {
 	useBlockProps,
 } from '@wordpress/block-editor';
 import {
+	BaseControl,
 	Button,
 	Notice,
 	Placeholder,
+	RangeControl,
+	Spinner,
 	ToggleControl,
-	__experimentalNumberControl as NumberControl,
 	__experimentalToolsPanel as ToolsPanel,
 	__experimentalToolsPanelItem as ToolsPanelItem,
-	Spinner,
-	Flex,
-	FlexItem,
 } from '@wordpress/components';
+import { useViewportMatch } from '@wordpress/compose';
 import { useState, useCallback, useEffect, useRef } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import Papa from 'papaparse';
 
 import './editor.scss';
+
+/**
+ * Mirrors the private @wordpress/block-editor utility of the same name.
+ * Ensures ToolsPanel dropdown menus are positioned correctly in the sidebar.
+ */
+function useToolsPanelDropdownMenuProps() {
+	const isMobileViewport = useViewportMatch( 'medium', '<' );
+	return isMobileViewport
+		? {}
+		: { popoverProps: { placement: 'left-start', offset: 259 } };
+}
 
 /**
  * Parse CSV text into core/table head and body attribute format.
@@ -145,9 +156,12 @@ function CommaSensePlaceholder( { onSelect, isLoading, error, onDismissError } )
 }
 
 /**
- * CSV Data Source panel component (shown in the block inspector when a CSV is linked).
+ * CSV Data Source inspector panels.
+ *
+ * Renders two ToolsPanel sections: one for the linked CSV file, one for
+ * pagination settings. Only shown once a CSV is linked.
  */
-function CsvDataSourcePanel( { attributes, setAttributes } ) {
+function CsvDataSourcePanel( { attributes, setAttributes, clientId } ) {
 	const {
 		commaSenseCsvId,
 		commaSenseFileName,
@@ -161,6 +175,9 @@ function CsvDataSourcePanel( { attributes, setAttributes } ) {
 
 	const hasHeader = Array.isArray( head ) && head.length > 0;
 	const hasCsv = commaSenseCsvId > 0;
+	const paginationActive = commaSensePaginationEnabled !== false;
+
+	const dropdownMenuProps = useToolsPanelDropdownMenuProps();
 
 	const fetchAndParseCsv = useCallback(
 		async ( attachmentId, fileName ) => {
@@ -225,172 +242,178 @@ function CsvDataSourcePanel( { attributes, setAttributes } ) {
 		} );
 	};
 
-	const paginationActive = commaSensePaginationEnabled !== false;
-
 	return (
 		<InspectorControls>
+			{ /* Accessibility warning — renders above the panels when the
+			     table header section has been disabled in core/table's controls. */ }
+			{ ! hasHeader && (
+				<Notice
+					status="warning"
+					isDismissible={ false }
+					className="comma-sense-header-notice"
+				>
+					{ __(
+						'Table headers are recommended for accessibility. They help screen reader users understand the data in each column.',
+						'comma-sense'
+					) }
+				</Notice>
+			) }
+
+			{ /* CSV Data Source panel */ }
 			<ToolsPanel
-				label={ __( 'Comma Sense', 'comma-sense' ) }
-				resetAll={ () => {
-					resetCsv();
-					resetPagination();
-				} }
+				label={ __( 'CSV Data Source', 'comma-sense' ) }
+				resetAll={ resetCsv }
+				panelId={ `${ clientId }-csv` }
+				dropdownMenuProps={ dropdownMenuProps }
 			>
-				{ ! hasHeader && (
-					<Notice
-						status="warning"
-						isDismissible={ false }
-						className="comma-sense-header-notice"
-					>
-						{ __(
-							'Table headers are recommended for accessibility. They provide context for screen readers and help users understand the data in each column.',
-							'comma-sense'
-						) }
-					</Notice>
-				) }
-
-				{ error && (
-					<Notice
-						status="error"
-						isDismissible={ true }
-						onDismiss={ () => setError( '' ) }
-					>
-						{ error }
-					</Notice>
-				) }
-
 				<ToolsPanelItem
+					panelId={ `${ clientId }-csv` }
 					label={ __( 'CSV file', 'comma-sense' ) }
 					hasValue={ () => hasCsv }
 					onDeselect={ resetCsv }
 					isShownByDefault
 				>
-					{ isLoading && (
-						<Flex
-							justify="center"
-							style={ { padding: '16px 0' } }
+					{ error && (
+						<Notice
+							status="error"
+							isDismissible
+							onDismiss={ () => setError( '' ) }
+							className="comma-sense-error-notice"
 						>
-							<FlexItem>
-								<Spinner />
-							</FlexItem>
-						</Flex>
+							{ error }
+						</Notice>
 					) }
 
-					{ hasCsv && ! isLoading && (
-						<div className="comma-sense-file-info">
-							<p>
-								<strong>
-									{ __(
-										'Linked file:',
-										'comma-sense'
-									) }
-								</strong>{ ' ' }
-								{ commaSenseFileName }
-							</p>
-							<Flex>
-								<FlexItem>
-									<Button
-										variant="secondary"
-										size="small"
-										onClick={ onRefresh }
-									>
-										{ __(
-											'Refresh',
-											'comma-sense'
+					{ isLoading ? (
+						<Spinner />
+					) : hasCsv ? (
+						<div className="comma-sense-panel-controls">
+							<BaseControl
+								label={ __(
+									'Linked file',
+									'comma-sense'
+								) }
+								__nextHasNoMarginBottom
+							>
+								<span className="comma-sense-filename">
+									{ commaSenseFileName }
+								</span>
+							</BaseControl>
+
+							<div className="comma-sense-file-actions">
+								<Button
+									variant="secondary"
+									size="compact"
+									onClick={ onRefresh }
+								>
+									{ __( 'Refresh', 'comma-sense' ) }
+								</Button>
+								<MediaUploadCheck>
+									<MediaUpload
+										onSelect={ onSelectMedia }
+										allowedTypes={ [ 'text/csv' ] }
+										value={ commaSenseCsvId }
+										render={ ( { open } ) => (
+											<Button
+												variant="secondary"
+												size="compact"
+												onClick={ open }
+											>
+												{ __(
+													'Replace',
+													'comma-sense'
+												) }
+											</Button>
 										) }
-									</Button>
-								</FlexItem>
-								<FlexItem>
-									<Button
-										variant="tertiary"
-										size="small"
-										isDestructive
-										onClick={ onUnlink }
-									>
-										{ __(
-											'Unlink',
-											'comma-sense'
-										) }
-									</Button>
-								</FlexItem>
-							</Flex>
+									/>
+								</MediaUploadCheck>
+								<Button
+									variant="secondary"
+									size="compact"
+									isDestructive
+									onClick={ onUnlink }
+								>
+									{ __( 'Unlink', 'comma-sense' ) }
+								</Button>
+							</div>
 						</div>
-					) }
-
-					{ ! isLoading && (
+					) : (
 						<MediaUploadCheck>
 							<MediaUpload
 								onSelect={ onSelectMedia }
 								allowedTypes={ [ 'text/csv' ] }
 								render={ ( { open } ) => (
 									<Button
-										variant={
-											hasCsv
-												? 'tertiary'
-												: 'secondary'
-										}
+										variant="secondary"
 										onClick={ open }
-										className="comma-sense-upload-btn"
+										__next40pxDefaultSize
 									>
-										{ hasCsv
-											? __(
-													'Replace CSV',
-													'comma-sense'
-											  )
-											: __(
-													'Upload CSV',
-													'comma-sense'
-											  ) }
+										{ __(
+											'Select CSV file',
+											'comma-sense'
+										) }
 									</Button>
 								) }
 							/>
 						</MediaUploadCheck>
 					) }
 				</ToolsPanelItem>
+			</ToolsPanel>
 
+			{ /* Pagination panel */ }
+			<ToolsPanel
+				label={ __( 'Pagination', 'comma-sense' ) }
+				resetAll={ resetPagination }
+				panelId={ `${ clientId }-pagination` }
+				dropdownMenuProps={ dropdownMenuProps }
+			>
 				<ToolsPanelItem
-					label={ __( 'Pagination', 'comma-sense' ) }
-					hasValue={ () =>
-						! paginationActive || commaSenseRowsPerPage !== 25
+					panelId={ `${ clientId }-pagination` }
+					label={ __( 'Enable pagination', 'comma-sense' ) }
+					hasValue={ () => ! paginationActive }
+					onDeselect={ () =>
+						setAttributes( { commaSensePaginationEnabled: true } )
 					}
-					onDeselect={ resetPagination }
 					isShownByDefault
 				>
-					<NumberControl
-						label={ __(
-							'Rows per page',
-							'comma-sense'
-						) }
-						value={ commaSenseRowsPerPage }
-						min={ 2 }
-						max={ 100 }
-						onChange={ ( value ) => {
-							const parsed = parseInt( value, 10 );
-							setAttributes( {
-								commaSenseRowsPerPage:
-									parsed > 0
-										? Math.min( parsed, 100 )
-										: 25,
-							} );
-						} }
-					/>
 					<ToggleControl
-						label={ __(
-							'Disable pagination',
-							'comma-sense'
-						) }
-						help={ __(
-							'Tables are limited to 100 rows per page for performance. Disabling pagination will still cap at 100 visible rows.',
-							'comma-sense'
-						) }
-						checked={ ! paginationActive }
-						onChange={ ( value ) =>
-							setAttributes( {
-								commaSensePaginationEnabled: ! value,
-							} )
+						label={ __( 'Enable pagination', 'comma-sense' ) }
+						checked={ paginationActive }
+						onChange={ ( val ) =>
+							setAttributes( { commaSensePaginationEnabled: val } )
 						}
+						__nextHasNoMarginBottom
 					/>
 				</ToolsPanelItem>
+
+				{ /* Only shown when pagination is on — mirrors the File block's
+				     pattern of conditionally rendering ToolsPanelItems. */ }
+				{ paginationActive && (
+					<ToolsPanelItem
+						panelId={ `${ clientId }-pagination` }
+						label={ __( 'Rows per page', 'comma-sense' ) }
+						hasValue={ () => commaSenseRowsPerPage !== 25 }
+						onDeselect={ () =>
+							setAttributes( { commaSenseRowsPerPage: 25 } )
+						}
+						isShownByDefault
+					>
+						<RangeControl
+							label={ __( 'Rows per page', 'comma-sense' ) }
+							value={ commaSenseRowsPerPage }
+							min={ 2 }
+							max={ 100 }
+							step={ 1 }
+							onChange={ ( val ) =>
+								setAttributes( {
+									commaSenseRowsPerPage: val ?? 25,
+								} )
+							}
+							__nextHasNoMarginBottom
+							__next40pxDefaultSize
+						/>
+					</ToolsPanelItem>
+				) }
 			</ToolsPanel>
 		</InspectorControls>
 	);
@@ -401,8 +424,8 @@ function CsvDataSourcePanel( { attributes, setAttributes } ) {
  *
  * Extracted from the HOC so hooks are called unconditionally before any
  * early returns (Rules of Hooks). useBlockProps() is NOT called here —
- * CommaSensePlaceholder owns it in placeholder state, and BlockEdit owns it
- * in table state.
+ * CommaSensePlaceholder owns it in placeholder state, and BlockEdit owns
+ * it in table state.
  */
 function CommaTableEdit( { BlockEdit, ...props } ) {
 	const {
@@ -579,6 +602,7 @@ function CommaTableEdit( { BlockEdit, ...props } ) {
 			<CsvDataSourcePanel
 				attributes={ props.attributes }
 				setAttributes={ props.setAttributes }
+				clientId={ props.clientId }
 			/>
 		</>
 	);

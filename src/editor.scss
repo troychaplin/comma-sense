@@ -1,21 +1,39 @@
+// Accessibility warning notice rendered above the inspector panels.
+// Needs horizontal margin to align with the sidebar panel chrome.
 .comma-sense-header-notice {
-	margin-bottom: 12px;
+	margin: 0 16px 8px;
 }
 
-.comma-sense-file-info {
-	margin-bottom: 12px;
-
-	p {
-		margin: 0 0 8px;
-	}
+// Inline error notice inside the CSV file panel item.
+.comma-sense-error-notice {
+	margin-bottom: 8px;
 }
 
-.comma-sense-upload-btn {
-	width: 100%;
-	justify-content: center;
-	margin-top: 8px;
+// Vertical stack for the CSV file panel item controls.
+.comma-sense-panel-controls {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
 }
 
+// File name displayed under the "Linked file" BaseControl label.
+// Truncates long names with an ellipsis.
+.comma-sense-filename {
+	display: block;
+	font-size: 13px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+// Horizontal row for Refresh / Replace / Unlink action buttons.
+.comma-sense-file-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+// Editor-only pagination preview strip rendered below the table.
 .comma-sense-pagination--editor {
 	display: flex;
 	align-items: center;
