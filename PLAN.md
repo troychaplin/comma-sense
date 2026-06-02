@@ -2,333 +2,79 @@
 
 ## Overview
 
-A WordPress plugin that registers a **block variation** of `core/table` called "Comma Sense." The variation adds CSV upload functionality so users can populate and sync table data from CSV files stored in the WordPress Media Library. Tables render dynamically on the frontend, always reflecting the current CSV file contents.
+A WordPress plugin that registers a **block variation** of `core/table` called "Comma Sense." The variation adds CSV upload functionality so users can populate and sync table data from CSV files stored in the Media Library. Tables render dynamically on the frontend, always reflecting the current CSV file contents.
+
+The core feature set (variation registration, CSV upload UI, PHP/JS parsing, dynamic frontend rendering, transient caching, and pagination) is built. This plan now focuses on the remaining **Gutenberg alignment & hardening** work surfaced by a review against the current `core/table` and `core/query-pagination` source.
+
+### Architecture (reference)
+
+- **Block variation**, not a custom block — inherits all of `core/table`'s styling, supports, and `block.json` features. Custom attributes (`commaSenseCsvId`, `commaSenseFileName`, `commaSensePaginationEnabled`, `commaSenseRowsPerPage`, `commaSenseVariation`) are added via a `blocks.registerBlockType` filter and stored in the block comment delimiter.
+- **Dynamic rendering** — a `render_block` filter (`includes/render.php`) intercepts `core/table` output when a CSV is linked and rebuilds the table from the current CSV. If the plugin is deactivated, the last-saved markup still renders.
+- **Caching** — parsed CSV data is cached in transients, keyed by attachment ID + file modification time.
+- **Editor** — a `editor.BlockEdit` HOC (`src/editor.js`) adds the CSV Data Source + Pagination inspector panels and a preview.
+
+### Key Files
+
+- `src/index.js` — variation + attribute registration
+- `src/editor.js` — BlockEdit HOC (CSV panel, preview, pagination)
+- `src/pagination.js` — frontend pagination (vanilla JS)
+- `includes/class-csv-handler.php` — CSV parsing + transient caching
+- `includes/render.php` — `render_block` filter for dynamic output
 
 ---
 
-## Architecture Decisions
+## Remaining Work: Gutenberg Alignment & Hardening
 
-### Why a Block Variation (not a custom block)
+A review against the current Gutenberg source surfaced one correctness bug and several robustness/alignment items. This work resolves them while keeping the plugin as close to core behavior as possible.
 
-- Inherits all core/table styling, supports, and block.json features
-- Users get a familiar table editing experience
-- Future WordPress improvements to core/table benefit this variation automatically
-- Trade-off: less control over inspector UI (see Header section below)
+### 1. Read-only preview while attached (fixes data-loss bug)
 
-### Dynamic Rendering
+**Problem.** While a CSV is attached, the editor HOC feeds core/table's `BlockEdit` a **sliced** `body` (`src/editor.js`). Core's `updateSelectedCell` (`table/state.js`) maps over the section it's given and writes the *entire* section back via `setAttributes`. So editing any cell while paginated past page 1 overwrites the full `body` with just the visible slice — silently destroying the other rows in the saved attributes (the frontend re-parses the CSV and is unaffected, but the deactivation fallback markup is corrupted).
 
-The frontend uses a `render_block_core/table` filter to intercept rendering when a CSV attachment is linked. This means:
+**Decision — Route B.** While a CSV is attached, **do not render core's editable `BlockEdit`.** Render our own static, read-only `<figure><table>` preview built from `head`/`body`. Editing is only possible after **Detach**, which flips `commaSenseVariation` off, removes our HOC wrapper, and hands control to unmodified core/table (fully editable). This removes the editor-side coupling to core's edit internals entirely and gives a 100% pure core/table experience once detached.
 
-- **Editor:** CSV is parsed on upload, populating the block's `head`/`body` attributes so the user sees a preview
-- **Frontend:** The CSV file is read and parsed on each page load, generating fresh HTML
-- **Fallback:** If the plugin is deactivated, the last-saved table markup still renders from post content
-- **Caching:** Parsed CSV data is cached using WordPress transients, keyed by attachment ID + file modification time
+- [ ] In `src/editor.js`, when `commaSenseCsvId > 0`, render a read-only preview instead of `<BlockEdit>`:
+  - [ ] Build the preview `<figure>`/`<table>` from `head`/`body`
+  - [ ] Apply core's wrapper/styling via `useBlockProps()` and core's exported helpers `__experimentalGetColorClassesAndStyles` / `__experimentalGetBorderClassesAndStyles` (the same helpers `table/save.js` uses) so the preview reflects the block's color/border/typography/spacing controls
+  - [ ] Add `has-fixed-layout` class when `hasFixedLayout` is set, matching core
+- [ ] Pagination preview slices `body` **for display only** (never calls `setAttributes`) — safe because it is our own preview, not a core attribute write
+- [ ] Keep the Detach flow as-is (already transforms to a plain core/table, preserving parsed `head`/`body`)
+- [ ] Remove the old slice-into-`editProps` logic and the `<BlockEdit>` render path for the attached state
+- [ ] Verify: editing cells is not possible while attached; detaching yields a fully editable, unmodified core/table; color/border/spacing controls still render and apply to the preview
 
-### CSV Storage
+### 2. Cell attribute parity (`scope`) — documentation + a11y nicety
 
-CSV files are uploaded to the **WordPress Media Library** as standard attachments. The block stores the attachment ID as a custom attribute. This allows easy file management and reuse across multiple blocks/posts.
-
----
-
-## Table Header (Accessibility)
-
-### The Problem
+**Assessment.** Core cells carry `align`, `colspan`, `rowspan`, `scope` (`table/save.js`); CSV-sourced tables intentionally omit `align`/`colspan`/`rowspan` because a CSV grid has no source for them. This is correct by design, not a gap. The only attribute that matters is `scope`, and the frontend (`includes/render.php`) already emits `scope="col"` on headers.
 
-For accessibility, data tables should always have a `<thead>` with header cells (`<th>`). The core/table block has a "Header section" toggle in the inspector that lets users remove it.
-
-### What's Possible
-
-**Block variations cannot remove or hide existing inspector controls.** This is a known WordPress/Gutenberg limitation (see Gutenberg issues #6023, #27752, #33891). We are not going to force the header on via JavaScript side-effects as that creates a confusing UX where the toggle appears functional but does nothing.
-
-### Our Approach: Inform, Don't Enforce
-
-1. **Default header ON** — The variation's default attributes include a populated header row (first row of the CSV becomes the header)
-2. **Accessibility notice** — Add an informational message in the inspector panel (within our custom "CSV Data Source" panel) that explains why the table header is important:
-   - Uses a `Notice` component (status: `"warning"`) that displays when the `head` attribute is empty
-   - Message along the lines of: _"Table headers are recommended for accessibility. They provide context for screen readers and help users understand the data in each column."_
-   - The notice only appears when the header is toggled off, keeping the UI clean when everything is correct
-3. **CSV re-upload restores header** — When a user uploads or refreshes a CSV, the first row always repopulates the header section, naturally restoring it
-
----
-
-## Plugin Structure
-
-```
-comma-sense/
-├── comma-sense.php              # Main plugin file, enqueues, filters
-├── package.json                   # Dependencies (@wordpress/scripts, papaparse)
-├── src/
-│   ├── index.js                   # Variation registration + attribute extension
-│   ├── editor.js                  # BlockEdit filter (CSV panel, header notice)
-│   ├── editor.scss                # Editor-only styles
-│   ├── style.scss                 # Shared frontend/editor styles (pagination, etc.)
-│   └── pagination.js              # Frontend-only vanilla JS for table pagination
-├── includes/
-│   ├── class-csv-handler.php      # CSV parsing, caching, file validation
-│   └── render.php                 # render_block filter logic
-├── build/                         # Generated by wp-scripts (gitignored)
-└── PLAN.md
-```
-
----
-
-## Implementation Steps
-
-### Phase 1: Plugin Scaffolding
-
-- [x] Create `comma-sense.php` with plugin header, activation basics
-- [x] Set up `package.json` with `@wordpress/scripts` and dependencies
-- [x] Configure `src/index.js` as the entry point
-- [x] Add build scripts (`npm run build`, `npm run start`)
-- [x] Enqueue editor script and styles in PHP
-
-### Phase 2: Block Variation Registration
-
-- [x] Register the variation via `wp.blocks.registerBlockVariation('core/table', {...})`
-  - `name`: `'comma-sense'`
-  - `title`: `'Comma Sense'`
-  - `icon`: `'editor-table'`
-  - `description`: `'A table synced from a CSV data source.'`
-  - `attributes`: default with header section enabled
-  - `isActive`: check for `commaSenseVariation === true`
-- [x] Extend `core/table` attributes using `blocks.registerBlockType` filter to add:
-  - `commaSenseCsvId` (number) — Media Library attachment ID
-  - `commaSenseFileName` (string) — Display name for the linked file
-  - `commaSensePaginationEnabled` (boolean, default: `true`) — Toggle pagination on/off
-  - `commaSenseRowsPerPage` (number, default: `25`) — Rows displayed per page
-  - `commaSenseVariation` (boolean, default: `false`) — Variation detection flag
-
-### Phase 3: Header Accessibility Notice
-
-- [x] Add `editor.BlockEdit` filter using `createHigherOrderComponent`
-- [x] Detect if current block is the Comma Sense variation (check `commaSenseVariation` attribute)
-- [x] When `attributes.head` is empty, display a `Notice` component (status: `"warning"`) inside the inspector panel advising that table headers improve accessibility and provide context for the data
-- [x] Notice is non-dismissible, renders conditionally when header is missing
-
-### Phase 4: CSV Upload UI
-
-- [x] Add `InspectorControls` panel titled "Comma Sense" in the BlockEdit HOC
-- [x] Use `MediaUpload` / `MediaUploadCheck` component for file selection
-  - Filter to CSV mime type (`text/csv`)
-- [x] On file select:
-  - Store attachment ID in `commaSenseCsvId`
-  - Store filename in `commaSenseFileName`
-  - Fetch CSV content via REST API (`/wp/v2/media/{id}`)
-  - Parse CSV and populate `head` and `body` attributes for editor preview
-- [x] Display linked file info (name)
-- [x] "Unlink" button to remove the CSV association
-- [x] "Refresh" button to re-fetch and re-parse the CSV
-
-### Phase 5: CSV Parsing (PHP)
-
-- [x] Create `includes/class-csv-handler.php`
-  - `parse( int $attachment_id ): array` — reads CSV, returns `['head' => [...], 'body' => [...]]`
-  - Validate file exists and is CSV mime type
-  - Handle encoding (UTF-8 BOM detection)
-  - Handle edge cases (empty files, single column, quoted fields)
-- [x] Implement transient caching
-  - Cache key: `comma_sense_{attachment_id}`
-  - Invalidate when file modification time changes
-  - Invalidate when attachment is updated/replaced
-
-### Phase 6: Dynamic Frontend Rendering
-
-- [x] Create `includes/render.php`
-- [x] Hook into `render_block` filter
-- [x] Check if block has `commaSenseCsvId` attribute set
-- [x] If yes:
-  - Call `CSV_Handler::parse()` to get current data
-  - Rebuild table HTML with `<thead>`, `<tbody>`, preserving block wrapper classes
-  - Return the new HTML (replacing saved content)
-- [x] If no: return original content unchanged (standard core/table behavior)
-
-### Phase 7: CSV Parsing (JavaScript — Editor Side)
-
-- [x] Add PapaParse as a dependency (`npm install papaparse`)
-  - Battle-tested CSV parsing library, handles quoted fields, newlines in cells, BOM, encoding edge cases
-  - Already supports multiple delimiters (comma, tab, pipe, etc.) which sets us up for future delimiter expansion
-- [x] On CSV select/refresh:
-  - Fetch the file URL from media attachment data
-  - Parse CSV content using PapaParse
-  - First row → `head` attribute (array of header cells)
-  - Remaining rows → `body` attribute (array of body rows)
-  - Update block attributes to show preview
+- [ ] Add `scope="col"` to header cells in the read-only editor preview (item 1) so editor and frontend match
+- [ ] Document in README that `align`/`colspan`/`rowspan` are intentionally unsupported for CSV-sourced tables
 
-### Phase 8: Pagination (Core)
-
-- [x] Add custom attributes to `core/table` via the `blocks.registerBlockType` filter:
-  - `commaSensePaginationEnabled` (boolean, default: `true`)
-  - `commaSenseRowsPerPage` (number, default: `25`)
-- [x] **Editor UI:** Add pagination controls in the inspector panel ("CSV Data Source" panel)
-  - Toggle to enable/disable pagination
-  - Number input for rows per page (min: 2, max: 100)
-  - Editor preview shows live pagination below the table with Previous/Next buttons and page number buttons
-  - Auto-resets to page 1 when settings change
-  - Smooth scroll to table top on page change
-- [x] **Frontend rendering (PHP):**
-  - All rows rendered in the DOM with `data-row-index` attributes
-  - Rows beyond the first page hidden with `style="display:none" aria-hidden="true"`
-  - Pagination nav rendered with `data-total-rows`, `data-rows-per-page`, `data-total-pages` config attributes
-  - Previous / page numbers / Next controls with proper ARIA
-  - Performance safeguard: force-enables pagination if rows exceed 100, caps rows-per-page at 100
-- [x] **Frontend JavaScript:**
-  - Vanilla JS (no dependencies), only enqueued when pagination is rendered
-  - Handles page navigation by toggling row visibility client-side
-  - Updates button states (disabled, active, `aria-current`) on interaction
-  - Smooth scroll to table top on page change
-- [x] **Styles:**
-  - Frontend styles in `style.scss` — flex layout, active/disabled states, hover transitions
-  - Editor styles in `editor.scss` — compact button sizing for preview
-
-### Phase 9: Pagination Style Options
-
-Match the display options available on `core/query-pagination` and its child blocks (`query-pagination-previous`, `query-pagination-next`, `query-pagination-numbers`).
-
-#### New Attributes
-
-Add to `core/table` via the `blocks.registerBlockType` filter in `src/index.js`:
-
-| Attribute | Type | Default | Purpose |
-|-----------|------|---------|---------|
-| `commaSensePaginationArrow` | string | `"none"` | Arrow style on prev/next buttons: `"none"`, `"arrow"` (→/←), `"chevron"` (»/«) |
-| `commaSenseShowLabel` | boolean | `true` | Show/hide "Previous"/"Next" text labels on prev/next buttons |
-| `commaSensePrevLabel` | string | `""` | Custom previous button text (fallback: "Previous") |
-| `commaSenseNextLabel` | string | `""` | Custom next button text (fallback: "Next") |
-| `commaSenseMidSize` | number | `2` | Number of page numbers to show on each side of the current page |
-
-All defaults match current behavior — no arrows, labels shown, all page numbers visible — so existing blocks are unaffected.
-
-#### Arrow Style
-
-Controls decorative arrow characters prepended/appended to the Previous/Next buttons.
-
-- `"none"` — No arrows (current behavior)
-- `"arrow"` — `←` Previous / Next `→`
-- `"chevron"` — `«` Previous / Next `»`
-
-Mirrors `core/query-pagination`'s `paginationArrow` attribute.
-
-#### Show Label
-
-When `true` (default), the Previous/Next buttons display their text labels.
-When `false`, the text labels are hidden and only arrows are shown.
-
-**Guard rail:** If `showLabel` is `false` and `paginationArrow` is `"none"`, force arrows on (or disable the label toggle) so buttons are never empty.
-
-Mirrors `core/query-pagination`'s `showLabel` attribute.
-
-#### Custom Labels
-
-Allow users to override the default "Previous" and "Next" text.
-
-- `commaSensePrevLabel`: when empty, falls back to "Previous"
-- `commaSenseNextLabel`: when empty, falls back to "Next"
-
-These fields are only visible in the inspector when `showLabel` is `true`.
-
-Mirrors `core/query-pagination-previous`'s `label` and `core/query-pagination-next`'s `label` attributes.
-
-#### Mid-Size (Page Number Truncation)
-
-Controls how many page numbers appear on each side of the current page. For a table with 20 pages and `midSize: 2`, on page 6:
-
-```
-[← Prev]  1 … 4 5 [6] 7 8 … 20  [Next →]
-```
-
-Rules:
-- Always show the first and last page numbers
-- Show `midSize` pages on each side of the current page
-- Show `…` ellipsis to indicate gaps
-- If the window overlaps with first/last page, collapse gracefully (no ellipsis needed)
-- When `midSize` is `0`, only show the current page (plus first/last)
-
-Mirrors `core/query-pagination-numbers`'s `midSize` attribute.
-
-#### Files That Change
-
-**`src/index.js`**
-- Register the 5 new attributes with their defaults
-
-**`src/editor.js`** — Two areas:
-
-1. **Inspector Controls** — Add to the existing Pagination `ToolsPanel`:
-   - `SelectControl` for arrow style (None / Arrow / Chevron)
-   - `ToggleControl` for show/hide labels
-   - `TextControl` for custom prev label (conditionally visible when `showLabel` is `true`)
-   - `TextControl` for custom next label (conditionally visible when `showLabel` is `true`)
-   - `NumberControl` for mid-size (min: 0, max: 5)
-   - Update the reset function to include new defaults
-
-2. **Editor Preview Pagination** — Update the HOC's pagination rendering:
-   - Prev/Next buttons: prepend/append arrow characters based on `paginationArrow`
-   - Prev/Next buttons: hide label text when `showLabel` is `false`
-   - Page number buttons: render with mid-size truncation logic
-   - Ellipsis rendered as non-interactive `<span>` elements
-
-**`includes/render.php`** — Update frontend HTML output:
-- Read the 5 new attributes from block attrs (with defaults)
-- Render prev/next button content with arrow characters and conditional label text
-- Apply mid-size truncation when generating page buttons
-- Add `<span class="comma-sense-pagination__ellipsis">…</span>` for gaps
-- Pass mid-size value as `data-mid-size` attribute on the nav for JS use
-
-**`src/pagination.js`** — Frontend JS updates:
-- Read `data-mid-size` from the pagination nav
-- Update `showPage()` to regenerate page button HTML when the current page changes (the visible window shifts with the user)
-- Mid-size truncation algorithm: calculate which page numbers to show, insert ellipsis spans, rebuild the `.comma-sense-pagination__pages` container
-- Read arrow/label config from button content (already rendered by PHP, just needs active state management)
-
-**`src/style.scss`** — Additions:
-- `.comma-sense-pagination__ellipsis` — non-clickable, no border/background, matches button spacing
-- Arrow-only button adjustments (tighter min-width when labels are hidden)
-
-**`src/editor.scss`** — Mirror new frontend styles for the editor preview
-
-#### Mid-Size Algorithm (shared across PHP, JS, React)
-
-The same logic is needed in three places. The algorithm:
-
-```
-function getVisiblePages(currentPage, totalPages, midSize):
-    pages = Set()
-
-    // Always include first and last
-    pages.add(1)
-    pages.add(totalPages)
-
-    // Include window around current page
-    start = max(1, currentPage - midSize)
-    end = min(totalPages, currentPage + midSize)
-    for i in range(start, end + 1):
-        pages.add(i)
-
-    // Sort and return
-    return sorted(pages)
-```
-
-When rendering, iterate the sorted list. If the gap between consecutive entries is > 1, insert an ellipsis.
-
-#### Implementation Steps
-
-- [ ] Register the 5 new attributes in `src/index.js`
-- [ ] Add inspector controls for arrow style, show label, custom labels, and mid-size in `src/editor.js`
-- [ ] Update editor preview pagination to respect arrow style, label visibility, and mid-size truncation
-- [ ] Update `includes/render.php` to render prev/next with arrows/labels and page numbers with mid-size truncation
-- [ ] Update `src/pagination.js` to regenerate page buttons with mid-size logic on page change
-- [ ] Add ellipsis and arrow-only styles to `src/style.scss` and `src/editor.scss`
-- [ ] Test edge cases: single page, 2 pages, mid-size larger than total pages, arrow-only mode, label toggle guard rail
-
----
-
-## Open Questions / Future Considerations
-
-- **Large CSVs:** Should we set a row/size limit? Large CSVs could bloat post content (editor preview) and slow rendering. Pagination helps on the frontend, but editor preview would still load all rows into block attributes
-- **Delimiter support (future):** Currently CSV-only. PapaParse already supports TSV, pipe-delimited, and auto-detection. When we're ready to expand, this is mostly a UI change (adding a delimiter selector or enabling auto-detect)
-- **Endpoint syncing (future):** The dynamic rendering architecture is designed to make this straightforward — the `render.php` filter would check for an endpoint URL attribute in addition to `commaSenseCsvId`, fetch from the endpoint, and render similarly
-- **AJAX pagination (future):** Current pagination loads all rows into the DOM and toggles visibility with JS. For very large tables (1000+ rows), a future improvement could use AJAX to fetch pages on demand from the cached/parsed CSV data via a custom REST endpoint
-- **File replacement:** If a user replaces the CSV file in the media library (using the "Replace" feature), the frontend automatically picks up changes due to dynamic rendering. The editor preview stays stale until the user clicks "Refresh"
-- **Multiple blocks, same CSV:** Multiple Comma Sense blocks can reference the same attachment ID. The transient cache handles this efficiently
+### 3. Robust frontend rendering — preserve core markup, swap only the table body
+
+**Problem.** `includes/render.php` reconstructs the entire `<figure>`/`<table>` wrapper with regex and *falls back to a hardcoded `<figure class="wp-block-table comma-sense">`* if the match misses — which would silently drop `alignwide`/spacing/anchor classes. This couples us to core's exact wrapper markup.
+
+**Fix.** Stop reconstructing the wrappers. Use core's saved markup as the base and replace **only the inner content of `<table>`**.
+
+- [ ] Replace the figure/table opening-tag `preg_match` reconstruction with an inner-swap: match `/(<table\b[^>]*>)(.*?)(<\/table>)/s` and substitute fresh `<thead>`/`<tbody>` between the captured open/close tags
+- [ ] `<figure>` classes, `<table>` classes/styles, and `<figcaption>` are preserved untouched (caption lives outside `<table>`, so it survives automatically)
+- [ ] **Fail safe:** if the `<table>` region can't be located, return `$block_content` unchanged (render the saved static table rather than a stripped-down one)
+- [ ] Ensure the `comma-sense` class is present on the figure (add via targeted replace on the existing figure tag only if missing)
+- [ ] Inject the pagination `<nav>` immediately before `</figure>`
+
+### 4. MIME hardening
+
+**Problem.** `class-csv-handler.php` accepts `text/csv`/`application/csv`/`text/plain`, but real CSVs frequently upload as `application/vnd.ms-excel`, which parses fine in the editor (client fetches the URL directly) yet fails server-side → silent stale fallback.
+
+- [ ] Add `application/vnd.ms-excel` to the accepted MIME allowlist in `Comma_Sense_CSV_Handler::parse()`
+- [ ] Add a `.csv` file-extension fallback check so server MIME quirks don't reject valid files, while staying tight enough not to accept arbitrary uploads
+- [ ] Verify a CSV that reports `application/vnd.ms-excel` renders on the frontend
+
+### Files That Change
+
+- `src/editor.js` — read-only preview render path, display-only pagination slice, core styling helpers (items 1, 2)
+- `includes/render.php` — inner-swap rendering + fail-safe (item 3)
+- `includes/class-csv-handler.php` — MIME allowlist + extension fallback (item 4)
+- `README.md` — document intentional cell-attribute limitations (item 2)
 
 ---
 
@@ -336,18 +82,21 @@ When rendering, iterate the sorted list. If the gap between consecutive entries 
 
 ### Variation Detection in Filters
 
-To reliably detect our variation in PHP (`render_block` filter), we check for the presence of `commaSenseCsvId` in the parsed block's `attrs`. This is more reliable than checking CSS classes.
+To detect the variation in PHP (`render_block`), we check for the presence of `commaSenseCsvId` in the parsed block's `attrs` — more reliable than checking CSS classes. In JS, the HOC checks `commaSenseVariation === true`.
 
 ### Attribute Storage
 
-Custom attributes added via the `blocks.registerBlockType` filter are stored in the block comment delimiter in post content:
+Custom attributes added via the `blocks.registerBlockType` filter serialize into the block comment delimiter, e.g. `<!-- wp:table {"commaSenseCsvId":42} -->`, so they persist with content and are available in both editor and frontend contexts.
 
-```html
-<!-- wp:table {"commaSenseCsvId":42,"commaSenseFileName":"data.csv"} -->
-```
+### REST API for CSV Content (editor)
 
-This means they persist with the content and are available in both editor and frontend contexts.
+The editor fetches CSV content via the media endpoint `GET /wp/v2/media/{id}`, reads `source_url`, then fetches and parses the file client-side with PapaParse.
 
-### REST API for CSV Content
+---
 
-To fetch CSV content in the editor, we use the existing media endpoint: `GET /wp/v2/media/{id}`. The response includes `source_url` which points to the actual file. We then fetch the file content from that URL to parse it client-side.
+## Future Considerations
+
+- **Large CSVs:** editor preview loads all rows into block attributes; pagination only helps the frontend. A row/size cap may be worth adding.
+- **Delimiter support:** CSV-only today; PapaParse already supports TSV/pipe/auto-detect — a future UI addition.
+- **Endpoint syncing:** the dynamic `render.php` architecture extends naturally to fetching from a remote endpoint instead of a CSV attachment.
+- **AJAX pagination:** current pagination loads all rows into the DOM; very large tables could fetch pages on demand via a REST endpoint.
