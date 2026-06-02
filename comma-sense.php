@@ -3,7 +3,7 @@
  * Plugin Name:       Comma Sense
  * Description:       A block variation of the core table block that syncs data from CSV files.
  * Version:           0.1.0
- * Requires at least: 6.4
+ * Requires at least: 6.5
  * Requires PHP:      7.4
  * Author:            Troy Chaplin
  * License:           GPL-2.0-or-later

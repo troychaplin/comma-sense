@@ -5,6 +5,5 @@ module.exports = {
 	...defaultConfig,
 	entry: {
 		index: path.resolve( __dirname, 'src', 'index.js' ),
-		pagination: path.resolve( __dirname, 'src', 'pagination.js' ),
 	},
 };

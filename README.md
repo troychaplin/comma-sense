@@ -49,7 +49,7 @@ Frontend output is rendered dynamically from the linked CSV, with server-side tr
 
 ## Requirements
 
-- WordPress 6.4+
+- WordPress 6.5+ (frontend pagination uses the Interactivity API)
 - PHP 7.4+
 
 ## Installation

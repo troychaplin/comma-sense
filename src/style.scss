@@ -1,3 +1,11 @@
+// Paginated-away rows carry the `hidden` attribute (bound by the Interactivity
+// API module). This safeguards the default `[hidden]` behaviour against themes
+// that set `tr { display: table-row }`. The no-JS <noscript> fallback (emitted
+// in render.php) overrides this with !important to reveal all rows.
+.comma-sense tr[hidden] {
+	display: none;
+}
+
 .comma-sense-pagination {
 	display: flex;
 	align-items: center;
