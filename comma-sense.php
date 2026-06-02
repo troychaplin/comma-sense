@@ -51,6 +51,10 @@ function comma_sense_editor_assets() {
 		true
 	);
 
+	// Load translations for the editor script's __() strings. A no-op until
+	// translation files are present in the languages directory.
+	wp_set_script_translations( 'comma-sense-editor', 'comma-sense', COMMA_SENSE_DIR . 'languages' );
+
 	if ( file_exists( COMMA_SENSE_DIR . 'build/index.css' ) ) {
 		wp_enqueue_style(
 			'comma-sense-editor',

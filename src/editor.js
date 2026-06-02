@@ -4,6 +4,7 @@
  * Adds the CSV Data Source inspector panel and header accessibility notice.
  */
 
+import apiFetch from '@wordpress/api-fetch';
 import { createHigherOrderComponent } from '@wordpress/compose';
 import { addFilter } from '@wordpress/hooks';
 import {
@@ -84,7 +85,7 @@ function parseCsvToTableAttributes( csvText ) {
  * @return {{ parsed: Object, fileName: string }}
  */
 async function fetchCsvData( attachmentId ) {
-	const response = await wp.apiFetch( {
+	const response = await apiFetch( {
 		path: `/wp/v2/media/${ attachmentId }`,
 	} );
 

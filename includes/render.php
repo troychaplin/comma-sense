@@ -15,10 +15,6 @@ if ( ! defined( 'ABSPATH' ) ) {
  * @return string Modified HTML or original content.
  */
 function comma_sense_render_block( $block_content, $block ) {
-	if ( 'core/table' !== $block['blockName'] ) {
-		return $block_content;
-	}
-
 	$attrs = $block['attrs'] ?? array();
 
 	if ( empty( $attrs['commaSenseCsvId'] ) ) {
@@ -162,7 +158,9 @@ function comma_sense_render_block( $block_content, $block ) {
 
 	return $new_content;
 }
-add_filter( 'render_block', 'comma_sense_render_block', 10, 2 );
+// Use the block-type-specific filter so the callback only runs for table
+// blocks, instead of on every block in the post via the generic `render_block`.
+add_filter( 'render_block_core/table', 'comma_sense_render_block', 10, 2 );
 
 /**
  * Enqueue the pagination script on the frontend.

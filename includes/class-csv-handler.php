@@ -125,13 +125,4 @@ class Comma_Sense_CSV_Handler {
 			'body' => $body,
 		);
 	}
-
-	/**
-	 * Invalidate the cache for a given attachment.
-	 *
-	 * @param int $attachment_id Media Library attachment ID.
-	 */
-	public static function invalidate_cache( int $attachment_id ) {
-		delete_transient( 'comma_sense_' . $attachment_id );
-	}
 }
