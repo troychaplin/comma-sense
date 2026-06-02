@@ -33,20 +33,20 @@ A review against the current Gutenberg source surfaced one correctness bug and s
 
 **Decision — Route B.** While a CSV is attached, **do not render core's editable `BlockEdit`.** Render our own static, read-only `<figure><table>` preview built from `head`/`body`. Editing is only possible after **Detach**, which flips `commaSenseVariation` off, removes our HOC wrapper, and hands control to unmodified core/table (fully editable). This removes the editor-side coupling to core's edit internals entirely and gives a 100% pure core/table experience once detached.
 
-- [ ] In `src/editor.js`, when `commaSenseCsvId > 0`, render a read-only preview instead of `<BlockEdit>`:
-  - [ ] Build the preview `<figure>`/`<table>` from `head`/`body`
-  - [ ] Apply core's wrapper/styling via `useBlockProps()` and core's exported helpers `__experimentalGetColorClassesAndStyles` / `__experimentalGetBorderClassesAndStyles` (the same helpers `table/save.js` uses) so the preview reflects the block's color/border/typography/spacing controls
-  - [ ] Add `has-fixed-layout` class when `hasFixedLayout` is set, matching core
-- [ ] Pagination preview slices `body` **for display only** (never calls `setAttributes`) — safe because it is our own preview, not a core attribute write
-- [ ] Keep the Detach flow as-is (already transforms to a plain core/table, preserving parsed `head`/`body`)
-- [ ] Remove the old slice-into-`editProps` logic and the `<BlockEdit>` render path for the attached state
+- [x] In `src/editor.js`, when `commaSenseCsvId > 0`, render a read-only preview instead of `<BlockEdit>`:
+  - [x] Build the preview `<figure>`/`<table>` from `head`/`body` (new `CommaSenseTablePreview` component using `RichText.Content`)
+  - [x] Apply core's wrapper/styling via `useBlockProps()` and core's exported helpers `__experimentalGetColorClassesAndStyles` / `__experimentalGetBorderClassesAndStyles` (the same helpers `table/save.js` uses) so the preview reflects the block's color/border/typography/spacing controls
+  - [x] Add `has-fixed-layout` class when `hasFixedLayout` is set, matching core
+- [x] Pagination preview slices `body` **for display only** (never calls `setAttributes`) — safe because it is our own preview, not a core attribute write
+- [x] Keep the Detach flow as-is (already transforms to a plain core/table, preserving parsed `head`/`body`)
+- [x] Remove the old slice-into-`editProps` logic and the `<BlockEdit>` render path for the attached state (HOC no longer passes `BlockEdit` into `CommaTableEdit`)
 - [ ] Verify: editing cells is not possible while attached; detaching yields a fully editable, unmodified core/table; color/border/spacing controls still render and apply to the preview
 
 ### 2. Cell attribute parity (`scope`) — documentation + a11y nicety
 
 **Assessment.** Core cells carry `align`, `colspan`, `rowspan`, `scope` (`table/save.js`); CSV-sourced tables intentionally omit `align`/`colspan`/`rowspan` because a CSV grid has no source for them. This is correct by design, not a gap. The only attribute that matters is `scope`, and the frontend (`includes/render.php`) already emits `scope="col"` on headers.
 
-- [ ] Add `scope="col"` to header cells in the read-only editor preview (item 1) so editor and frontend match
+- [x] Add `scope="col"` to header cells in the read-only editor preview (item 1) so editor and frontend match
 - [ ] Document in README that `align`/`colspan`/`rowspan` are intentionally unsupported for CSV-sourced tables
 
 ### 3. Robust frontend rendering — preserve core markup, swap only the table body
