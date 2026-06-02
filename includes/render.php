@@ -50,7 +50,8 @@ function comma_sense_render_block( $block_content, $block ) {
 	}
 
 	// Extract the existing <figure> opening tag from the original block content
-	// so we preserve all core classes (alignwide, has-fixed-layout, colors, etc.).
+	// so we preserve the figure-level classes core/table applies here
+	// (alignwide/alignfull, is-style-stripes, spacing, etc.).
 	$figure_open = '<figure class="wp-block-table comma-sense">';
 	if ( preg_match( '/<figure\b[^>]*>/', $block_content, $matches ) ) {
 		$figure_open = $matches[0];
@@ -61,9 +62,25 @@ function comma_sense_render_block( $block_content, $block ) {
 		}
 	}
 
+	// Preserve the original <table> opening tag so core's table-level styling
+	// survives — has-fixed-layout, color classes/styles, and border
+	// classes/styles are applied by core/table to the <table> element (not the
+	// figure), so a bare <table> would drop them.
+	$table_open = '<table>';
+	if ( preg_match( '/<table\b[^>]*>/', $block_content, $table_matches ) ) {
+		$table_open = $table_matches[0];
+	}
+
+	// Preserve the table caption (rendered after the table, inside the figure)
+	// so it isn't lost when the table is rebuilt from CSV data.
+	$caption_html = '';
+	if ( preg_match( '/<figcaption\b[^>]*>.*?<\/figcaption>/s', $block_content, $caption_matches ) ) {
+		$caption_html = $caption_matches[0];
+	}
+
 	// Build the table HTML.
 	$table_html = $figure_open;
-	$table_html .= '<table>';
+	$table_html .= $table_open;
 
 	// Render thead.
 	if ( ! empty( $head ) ) {
@@ -101,6 +118,9 @@ function comma_sense_render_block( $block_content, $block ) {
 	}
 
 	$table_html .= '</table>';
+
+	// Re-append the preserved caption after the table.
+	$table_html .= $caption_html;
 
 	// Render pagination controls.
 	if ( $pagination_enabled && $total_rows > $rows_per_page ) {
