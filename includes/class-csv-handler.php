@@ -22,8 +22,17 @@ class Comma_Sense_CSV_Handler {
 			return new WP_Error( 'file_not_found', __( 'CSV file not found.', 'comma-sense' ) );
 		}
 
-		$mime = get_post_mime_type( $attachment_id );
-		if ( $mime && ! in_array( $mime, array( 'text/csv', 'application/csv', 'text/plain' ), true ) ) {
+		// Validate the file is a CSV. Servers vary in how they report CSV MIME
+		// types (text/csv, application/csv, text/plain, and Excel's
+		// application/vnd.ms-excel are all common), so we accept the known set
+		// and fall back to a .csv extension check for anything else. The
+		// extension fallback keeps valid files working without opening the door
+		// to arbitrary uploads.
+		$allowed_mimes = array( 'text/csv', 'application/csv', 'text/plain', 'application/vnd.ms-excel' );
+		$mime          = get_post_mime_type( $attachment_id );
+		$has_csv_ext   = 'csv' === strtolower( pathinfo( $file_path, PATHINFO_EXTENSION ) );
+
+		if ( $mime && ! in_array( $mime, $allowed_mimes, true ) && ! $has_csv_ext ) {
 			return new WP_Error( 'invalid_mime', __( 'File is not a valid CSV.', 'comma-sense' ) );
 		}
 
@@ -115,14 +124,5 @@ class Comma_Sense_CSV_Handler {
 			'head' => $head,
 			'body' => $body,
 		);
-	}
-
-	/**
-	 * Invalidate the cache for a given attachment.
-	 *
-	 * @param int $attachment_id Media Library attachment ID.
-	 */
-	public static function invalidate_cache( int $attachment_id ) {
-		delete_transient( 'comma_sense_' . $attachment_id );
 	}
 }

@@ -4,6 +4,7 @@
 
 import { registerBlockVariation } from '@wordpress/blocks';
 import { addFilter } from '@wordpress/hooks';
+import { __ } from '@wordpress/i18n';
 
 import './editor';
 import './style.scss';
@@ -53,9 +54,19 @@ addFilter(
  */
 registerBlockVariation( 'core/table', {
 	name: 'comma-sense',
-	title: 'Comma Sense',
-	description: 'A table synced from a CSV data source.',
+	title: __( 'Comma Sense', 'comma-sense' ),
+	description: __( 'A table synced from a CSV data source.', 'comma-sense' ),
 	icon: 'editor-table',
+	// Inserter only: do not offer a block transform. Converting an existing,
+	// populated core/table into the variation would set commaSenseVariation
+	// with no CSV linked, replacing the table with our upload placeholder.
+	scope: [ 'inserter' ],
+	keywords: [
+		__( 'csv', 'comma-sense' ),
+		__( 'data', 'comma-sense' ),
+		__( 'table', 'comma-sense' ),
+		__( 'spreadsheet', 'comma-sense' ),
+	],
 	attributes: {
 		commaSenseVariation: true,
 		commaSenseCsvId: 0,

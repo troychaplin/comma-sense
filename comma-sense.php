@@ -51,6 +51,10 @@ function comma_sense_editor_assets() {
 		true
 	);
 
+	// Load translations for the editor script's __() strings. A no-op until
+	// translation files are present in the languages directory.
+	wp_set_script_translations( 'comma-sense-editor', 'comma-sense', COMMA_SENSE_DIR . 'languages' );
+
 	if ( file_exists( COMMA_SENSE_DIR . 'build/index.css' ) ) {
 		wp_enqueue_style(
 			'comma-sense-editor',
@@ -61,6 +65,32 @@ function comma_sense_editor_assets() {
 	}
 }
 add_action( 'enqueue_block_editor_assets', 'comma_sense_editor_assets' );
+
+/**
+ * Enqueue editor styles into the block editor canvas (iframe).
+ *
+ * enqueue_block_editor_assets only loads styles into the editor's outer
+ * document (where the sidebar/inspector render), not the iframed canvas where
+ * blocks are displayed. Canvas-facing rules — the read-only cell lock and the
+ * pagination preview — must be loaded via enqueue_block_assets, which targets
+ * both the canvas iframe and the front end. The is_admin() guard keeps these
+ * editor-only styles off the front end (front-end styles ship in style-index.css).
+ */
+function comma_sense_editor_canvas_assets() {
+	if ( ! is_admin() ) {
+		return;
+	}
+
+	if ( file_exists( COMMA_SENSE_DIR . 'build/index.css' ) ) {
+		wp_enqueue_style(
+			'comma-sense-editor-canvas',
+			COMMA_SENSE_URL . 'build/index.css',
+			array(),
+			COMMA_SENSE_VERSION
+		);
+	}
+}
+add_action( 'enqueue_block_assets', 'comma_sense_editor_canvas_assets' );
 
 /**
  * Enqueue frontend styles.
