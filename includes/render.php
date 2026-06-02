@@ -49,118 +49,118 @@ function comma_sense_render_block( $block_content, $block ) {
 		$rows_per_page      = 100;
 	}
 
-	// Extract the existing <figure> opening tag from the original block content
-	// so we preserve the figure-level classes core/table applies here
-	// (alignwide/alignfull, is-style-stripes, spacing, etc.).
-	$figure_open = '<figure class="wp-block-table comma-sense">';
-	if ( preg_match( '/<figure\b[^>]*>/', $block_content, $matches ) ) {
-		$figure_open = $matches[0];
+	// Build the fresh <thead>/<tbody> that will replace the saved table's inner
+	// content. We deliberately do NOT reconstruct the <figure>/<table> wrappers:
+	// keeping core's own opening tags preserves every class/style it applies
+	// (alignwide/alignfull, is-style-stripes, spacing, has-fixed-layout, color,
+	// border) and any <figcaption>, with no coupling to core's exact markup.
+	$sections_html = '';
 
-		// Ensure our custom class is present on the figure tag.
-		if ( strpos( $figure_open, 'comma-sense' ) === false ) {
-			$figure_open = str_replace( 'class="', 'class="comma-sense ', $figure_open );
-		}
-	}
-
-	// Preserve the original <table> opening tag so core's table-level styling
-	// survives — has-fixed-layout, color classes/styles, and border
-	// classes/styles are applied by core/table to the <table> element (not the
-	// figure), so a bare <table> would drop them.
-	$table_open = '<table>';
-	if ( preg_match( '/<table\b[^>]*>/', $block_content, $table_matches ) ) {
-		$table_open = $table_matches[0];
-	}
-
-	// Preserve the table caption (rendered after the table, inside the figure)
-	// so it isn't lost when the table is rebuilt from CSV data.
-	$caption_html = '';
-	if ( preg_match( '/<figcaption\b[^>]*>.*?<\/figcaption>/s', $block_content, $caption_matches ) ) {
-		$caption_html = $caption_matches[0];
-	}
-
-	// Build the table HTML.
-	$table_html = $figure_open;
-	$table_html .= $table_open;
-
-	// Render thead.
 	if ( ! empty( $head ) ) {
-		$table_html .= '<thead>';
+		$sections_html .= '<thead>';
 		foreach ( $head as $row ) {
-			$table_html .= '<tr>';
+			$sections_html .= '<tr>';
 			foreach ( $row['cells'] as $cell ) {
-				$tag     = 'th';
 				$content = $cell['content'] ?? '';
 				$scope   = ! empty( $cell['scope'] ) ? ' scope="' . esc_attr( $cell['scope'] ) . '"' : ' scope="col"';
-				$table_html .= '<' . $tag . $scope . '>' . esc_html( $content ) . '</' . $tag . '>';
+				$sections_html .= '<th' . $scope . '>' . esc_html( $content ) . '</th>';
 			}
-			$table_html .= '</tr>';
+			$sections_html .= '</tr>';
 		}
-		$table_html .= '</thead>';
+		$sections_html .= '</thead>';
 	}
 
-	// Render tbody.
 	if ( ! empty( $body ) ) {
-		$table_html .= '<tbody>';
+		$sections_html .= '<tbody>';
 		foreach ( $body as $index => $row ) {
 			$hidden = '';
 			if ( $pagination_enabled && $index >= $rows_per_page ) {
 				$hidden = ' style="display:none" aria-hidden="true"';
 			}
-			$table_html .= '<tr data-row-index="' . esc_attr( $index ) . '"' . $hidden . '>';
+			$sections_html .= '<tr data-row-index="' . esc_attr( $index ) . '"' . $hidden . '>';
 			foreach ( $row['cells'] as $cell ) {
 				$tag     = $cell['tag'] ?? 'td';
 				$content = $cell['content'] ?? '';
-				$table_html .= '<' . $tag . '>' . esc_html( $content ) . '</' . $tag . '>';
+				$sections_html .= '<' . $tag . '>' . esc_html( $content ) . '</' . $tag . '>';
 			}
-			$table_html .= '</tr>';
+			$sections_html .= '</tr>';
 		}
-		$table_html .= '</tbody>';
+		$sections_html .= '</tbody>';
 	}
 
-	$table_html .= '</table>';
+	// Swap only the inner content of the first <table>, keeping its opening and
+	// closing tags. A callback is used instead of a replacement string so cell
+	// content containing "$" sequences (e.g. "$5") isn't treated as a regex
+	// backreference.
+	$count       = 0;
+	$new_content = preg_replace_callback(
+		'/(<table\b[^>]*>)(.*?)(<\/table>)/s',
+		static function ( $matches ) use ( $sections_html ) {
+			return $matches[1] . $sections_html . $matches[3];
+		},
+		$block_content,
+		1,
+		$count
+	);
 
-	// Re-append the preserved caption after the table.
-	$table_html .= $caption_html;
+	// Fail safe: if the saved markup has no <table> (unexpected), leave the
+	// original content untouched rather than emitting a stripped-down table.
+	if ( null === $new_content || 0 === $count ) {
+		return $block_content;
+	}
 
-	// Render pagination controls.
+	// Ensure the figure carries the `comma-sense` class so the frontend styles
+	// and pagination script can scope to it. add_class() is a no-op if present.
+	$processor = new WP_HTML_Tag_Processor( $new_content );
+	if ( $processor->next_tag( array( 'tag_name' => 'figure' ) ) ) {
+		$processor->add_class( 'comma-sense' );
+		$new_content = $processor->get_updated_html();
+	}
+
+	// Render pagination controls and inject them just before </figure>.
 	if ( $pagination_enabled && $total_rows > $rows_per_page ) {
 		$total_pages = (int) ceil( $total_rows / $rows_per_page );
 
-		$table_html .= '<nav class="comma-sense-pagination" aria-label="' . esc_attr__( 'Table pagination', 'comma-sense' ) . '"';
-		$table_html .= ' data-total-rows="' . esc_attr( $total_rows ) . '"';
-		$table_html .= ' data-rows-per-page="' . esc_attr( $rows_per_page ) . '"';
-		$table_html .= ' data-total-pages="' . esc_attr( $total_pages ) . '">';
+		$pagination_html  = '<nav class="comma-sense-pagination" aria-label="' . esc_attr__( 'Table pagination', 'comma-sense' ) . '"';
+		$pagination_html .= ' data-total-rows="' . esc_attr( $total_rows ) . '"';
+		$pagination_html .= ' data-rows-per-page="' . esc_attr( $rows_per_page ) . '"';
+		$pagination_html .= ' data-total-pages="' . esc_attr( $total_pages ) . '">';
 
-		$table_html .= '<button class="comma-sense-pagination__btn comma-sense-pagination__prev" disabled aria-label="' . esc_attr__( 'Previous page', 'comma-sense' ) . '">';
-		$table_html .= esc_html__( 'Previous', 'comma-sense' );
-		$table_html .= '</button>';
+		$pagination_html .= '<button class="comma-sense-pagination__btn comma-sense-pagination__prev" disabled aria-label="' . esc_attr__( 'Previous page', 'comma-sense' ) . '">';
+		$pagination_html .= esc_html__( 'Previous', 'comma-sense' );
+		$pagination_html .= '</button>';
 
-		$table_html .= '<span class="comma-sense-pagination__pages">';
+		$pagination_html .= '<span class="comma-sense-pagination__pages">';
 		for ( $i = 1; $i <= $total_pages; $i++ ) {
 			$active  = 1 === $i ? ' aria-current="page"' : '';
 			$classes = 'comma-sense-pagination__page';
 			if ( 1 === $i ) {
 				$classes .= ' comma-sense-pagination__page--active';
 			}
-			$table_html .= '<button class="' . esc_attr( $classes ) . '" data-page="' . esc_attr( $i ) . '"' . $active . '>';
-			$table_html .= esc_html( $i );
-			$table_html .= '</button>';
+			$pagination_html .= '<button class="' . esc_attr( $classes ) . '" data-page="' . esc_attr( $i ) . '"' . $active . '>';
+			$pagination_html .= esc_html( $i );
+			$pagination_html .= '</button>';
 		}
-		$table_html .= '</span>';
+		$pagination_html .= '</span>';
 
-		$table_html .= '<button class="comma-sense-pagination__btn comma-sense-pagination__next" aria-label="' . esc_attr__( 'Next page', 'comma-sense' ) . '">';
-		$table_html .= esc_html__( 'Next', 'comma-sense' );
-		$table_html .= '</button>';
+		$pagination_html .= '<button class="comma-sense-pagination__btn comma-sense-pagination__next" aria-label="' . esc_attr__( 'Next page', 'comma-sense' ) . '">';
+		$pagination_html .= esc_html__( 'Next', 'comma-sense' );
+		$pagination_html .= '</button>';
 
-		$table_html .= '</nav>';
+		$pagination_html .= '</nav>';
+
+		$close_pos = strrpos( $new_content, '</figure>' );
+		if ( false !== $close_pos ) {
+			$new_content = substr_replace( $new_content, $pagination_html, $close_pos, 0 );
+		} else {
+			$new_content .= $pagination_html;
+		}
 
 		// Enqueue pagination JS only when needed.
 		comma_sense_enqueue_pagination_script();
 	}
 
-	$table_html .= '</figure>';
-
-	return $table_html;
+	return $new_content;
 }
 add_filter( 'render_block', 'comma_sense_render_block', 10, 2 );
 

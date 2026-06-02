@@ -33,7 +33,22 @@
 	gap: 8px;
 }
 
-// Editor-only pagination preview strip rendered below the table.
+// Read-only canvas while a CSV is linked. Making the cells pointer-transparent
+// (not `inert`/`pointer-events` on the whole block) means clicks fall through to
+// the block wrapper and still select the block — so the inspector controls stay
+// reachable — while no editing caret is placed in a cell. The data integrity
+// half is enforced by the setAttributes guard in editor.js. The figcaption is
+// intentionally left interactive (it is block content, not CSV data).
+.comma-sense-readonly {
+	td,
+	th {
+		pointer-events: none;
+	}
+}
+
+// Static pagination preview rendered below the table in the editor. Self-
+// contained because the shared frontend styles (style.scss) aren't loaded in
+// the editor. Non-interactive: it only represents the frontend pagination.
 .comma-sense-pagination--editor {
 	display: flex;
 	align-items: center;
@@ -41,11 +56,33 @@
 	gap: 4px;
 	padding: 8px 0;
 	flex-wrap: wrap;
+	opacity: 0.6;
+	pointer-events: none;
+
+	.comma-sense-pagination__pages {
+		display: flex;
+		gap: 4px;
+		flex-wrap: wrap;
+	}
 
 	.comma-sense-pagination__btn,
 	.comma-sense-pagination__page {
-		min-width: auto;
 		padding: 4px 8px;
+		border: 1px solid #ddd;
+		background: #fff;
+		font-size: 13px;
+		line-height: 1.4;
+		border-radius: 3px;
+	}
+
+	.comma-sense-pagination__page--active {
+		background-color: #1e1e1e;
+		color: #fff;
+		border-color: #1e1e1e;
+	}
+
+	.comma-sense-pagination__ellipsis {
+		padding: 4px;
 		font-size: 13px;
 	}
 }

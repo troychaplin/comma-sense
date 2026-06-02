@@ -11,11 +11,7 @@ import {
 	MediaUpload,
 	MediaUploadCheck,
 	MediaPlaceholder,
-	RichText,
 	useBlockProps,
-	__experimentalGetColorClassesAndStyles as getColorClassesAndStyles,
-	__experimentalGetBorderClassesAndStyles as getBorderClassesAndStyles,
-	__experimentalGetElementClassName as getElementClassName,
 } from '@wordpress/block-editor';
 import {
 	BaseControl,
@@ -29,7 +25,7 @@ import {
 	__experimentalToolsPanelItem as ToolsPanelItem,
 } from '@wordpress/components';
 import { useViewportMatch } from '@wordpress/compose';
-import { useState, useCallback, useEffect, useRef } from '@wordpress/element';
+import { useState, useCallback } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import Papa from 'papaparse';
 
@@ -436,134 +432,86 @@ function CsvDataSourcePanel( { attributes, setAttributes, clientId } ) {
 }
 
 /**
- * Read-only table preview shown while a CSV is attached.
+ * Static, non-interactive pagination preview shown below the table while a CSV
+ * is attached and pagination is active. It does not drive anything — it just
+ * represents the frontend pagination so the editor conveys that only the first
+ * page of rows is being shown. Rendered with spans (not buttons) and hidden
+ * from assistive tech; the real, working pagination is generated on the
+ * frontend by includes/render.php.
  *
- * Mirrors core/table's save output (figure > table > thead/tbody + figcaption)
- * so the preview reflects core's color, border, typography, spacing, and
- * alignment controls — without rendering core's *editable* BlockEdit. Because
- * nothing here writes to block attributes, paginating the preview can never
- * corrupt the stored body. Editing requires Detach, which returns the block to
- * an unmodified core/table.
- *
- * useBlockProps() is called here so the editor can track and select the block;
- * in placeholder state CommaSensePlaceholder owns that call instead. The two
- * states are mutually exclusive returns, so useBlockProps() runs exactly once.
- *
- * Props: `attributes` (block attributes), `body` (rows to display, already
- * sliced for the current page), and `children` (optional content rendered
- * inside the figure, e.g. the pagination nav).
+ * Prop: `totalPages` — number of pages the frontend will produce.
  */
-function CommaSenseTablePreview( { attributes, body, children } ) {
-	const blockProps = useBlockProps();
-	const { head, caption, hasFixedLayout } = attributes;
-
-	// core/table marks color and border as __experimentalSkipSerialization,
-	// so these classes/styles are applied manually to the <table> (not the
-	// figure) — exactly as core's save.js does.
-	const colorProps = getColorClassesAndStyles( attributes );
-	const borderProps = getBorderClassesAndStyles( attributes );
-
-	const tableClassName =
-		[
-			colorProps.className,
-			borderProps.className,
-			hasFixedLayout ? 'has-fixed-layout' : '',
-		]
-			.filter( Boolean )
-			.join( ' ' ) || undefined;
-
-	const tableStyle = { ...colorProps.style, ...borderProps.style };
-	const hasCaption = ! RichText.isEmpty( caption );
-
-	const Section = ( { type, rows } ) => {
-		if ( ! Array.isArray( rows ) || ! rows.length ) {
-			return null;
-		}
-		const Tag = `t${ type }`;
-		return (
-			<Tag>
-				{ rows.map( ( { cells }, rowIndex ) => (
-					<tr key={ rowIndex }>
-						{ ( cells || [] ).map(
-							( { content, tag, scope, align }, cellIndex ) => (
-								<RichText.Content
-									key={ cellIndex }
-									tagName={ tag || 'td' }
-									value={ content }
-									className={
-										align
-											? `has-text-align-${ align }`
-											: undefined
-									}
-									data-align={ align }
-									// Default header cells to scope="col" for
-									// accessibility parity with the frontend.
-									scope={
-										tag === 'th'
-											? scope || 'col'
-											: undefined
-									}
-								/>
-							)
-						) }
-					</tr>
-				) ) }
-			</Tag>
-		);
-	};
+function PaginationPlaceholder( { totalPages } ) {
+	// Keep the strip compact for large tables: 1 2 3 … N.
+	const pages =
+		totalPages <= 7
+			? Array.from( { length: totalPages }, ( _, i ) => i + 1 )
+			: [ 1, 2, 3, '…', totalPages ];
 
 	return (
-		<figure { ...blockProps }>
-			<table className={ tableClassName } style={ tableStyle }>
-				<Section type="head" rows={ head } />
-				<Section type="body" rows={ body } />
-			</table>
-			{ hasCaption && (
-				<RichText.Content
-					tagName="figcaption"
-					value={ caption }
-					className={ getElementClassName( 'caption' ) }
-				/>
-			) }
-			{ children }
-		</figure>
+		<nav
+			className="comma-sense-pagination comma-sense-pagination--editor"
+			aria-hidden="true"
+		>
+			<span className="comma-sense-pagination__btn comma-sense-pagination__prev">
+				{ __( 'Previous', 'comma-sense' ) }
+			</span>
+			<span className="comma-sense-pagination__pages">
+				{ pages.map( ( page, i ) =>
+					page === '…' ? (
+						<span
+							key={ `gap-${ i }` }
+							className="comma-sense-pagination__ellipsis"
+						>
+							{ '…' }
+						</span>
+					) : (
+						<span
+							key={ page }
+							className={ `comma-sense-pagination__page${
+								page === 1
+									? ' comma-sense-pagination__page--active'
+									: ''
+							}` }
+						>
+							{ page }
+						</span>
+					)
+				) }
+			</span>
+			<span className="comma-sense-pagination__btn comma-sense-pagination__next">
+				{ __( 'Next', 'comma-sense' ) }
+			</span>
+		</nav>
 	);
 }
 
 /**
  * Inner component for the Comma Sense block edit view.
  *
- * Extracted from the HOC so hooks are called unconditionally before any
- * early returns (Rules of Hooks). useBlockProps() is NOT called here — it is
- * owned by CommaSensePlaceholder (placeholder state) or CommaSenseTablePreview
- * (attached state), which are mutually exclusive returns.
+ * Two mutually exclusive states:
+ * - No CSV linked → CommaSensePlaceholder (which owns useBlockProps()).
+ * - CSV linked    → core/table's real BlockEdit, so every core control
+ *                   (alignment, color, border, typography, spacing, toolbar)
+ *                   stays available, alongside our CSV/pagination inspector.
+ *
+ * While a CSV is linked the table is read-only in two layers:
+ * 1. The setAttributes handed to BlockEdit drops any head/body change, so the
+ *    CSV data can't be edited or corrupted (covers cell edits, paste, and the
+ *    insert/delete row/column toolbar). All other attributes pass through, so
+ *    the style/support controls keep working.
+ * 2. A `comma-sense-readonly` class (added via editor.BlockListBlock) makes the
+ *    cells pointer-transparent, so clicking selects the block instead of
+ *    placing an editing caret.
+ *
+ * To edit by hand, Detach first — that clears commaSenseVariation and the block
+ * becomes an unmodified, fully editable core/table.
  */
-function CommaTableEdit( props ) {
-	const {
-		commaSenseCsvId,
-		commaSensePaginationEnabled,
-		commaSenseRowsPerPage,
-		body,
-	} = props.attributes;
+function CommaTableEdit( { BlockEdit, ...props } ) {
+	const { commaSenseCsvId } = props.attributes;
 
-	const [ currentPage, setCurrentPage ] = useState( 1 );
 	const [ isPlaceholderLoading, setIsPlaceholderLoading ] = useState( false );
 	const [ placeholderError, setPlaceholderError ] = useState( '' );
-	const initialPageRef = useRef( true );
-
-	// Scroll to top of block when page changes (skip initial render).
-	useEffect( () => {
-		if ( initialPageRef.current ) {
-			initialPageRef.current = false;
-			return;
-		}
-		const blockEl = document.getElementById( 'block-' + props.clientId );
-		if ( blockEl ) {
-			const blockTop =
-				blockEl.getBoundingClientRect().top + window.scrollY - 20;
-			window.scrollTo( { top: blockTop, behavior: 'smooth' } );
-		}
-	}, [ currentPage, props.clientId ] );
 
 	const onPlaceholderSelect = useCallback(
 		async ( media ) => {
@@ -594,26 +542,24 @@ function CommaTableEdit( props ) {
 		[ props.setAttributes ]
 	);
 
-	const maxRows = 100;
-	const totalRows = Array.isArray( body ) ? body.length : 0;
-	const isPaginationActive = commaSensePaginationEnabled !== false;
-
-	const forcePagination = ! isPaginationActive && totalRows > maxRows;
-	const effectiveRowsPerPage = forcePagination
-		? maxRows
-		: Math.min( commaSenseRowsPerPage || 25, maxRows );
-	const showPagination =
-		( isPaginationActive || forcePagination ) &&
-		totalRows > effectiveRowsPerPage;
-	const totalPages = Math.max(
-		1,
-		Math.ceil( totalRows / effectiveRowsPerPage )
+	// Read-only guard: block any head/body change from core/table's edit while
+	// a CSV is linked (cell typing, paste, insert/delete row/column), but let
+	// every other attribute through so the style/support controls still work.
+	const readOnlySetAttributes = useCallback(
+		( next ) => {
+			if ( next && ( 'head' in next || 'body' in next ) ) {
+				const rest = { ...next };
+				delete rest.head;
+				delete rest.body;
+				if ( Object.keys( rest ).length > 0 ) {
+					props.setAttributes( rest );
+				}
+				return;
+			}
+			props.setAttributes( next );
+		},
+		[ props.setAttributes ]
 	);
-
-	// Reset to page 1 when pagination settings change.
-	useEffect( () => {
-		setCurrentPage( 1 );
-	}, [ isPaginationActive, effectiveRowsPerPage, totalRows ] );
 
 	// --- Placeholder: shown until a CSV is linked ---
 	// CommaSensePlaceholder calls useBlockProps() so the editor can track
@@ -629,72 +575,53 @@ function CommaTableEdit( props ) {
 		);
 	}
 
-	// --- CSV linked: render read-only preview + pagination + inspector ---
+	// --- CSV linked: core's real (read-only) table edit + our inspector ---
+	const { commaSensePaginationEnabled, commaSenseRowsPerPage, body } =
+		props.attributes;
 
-	// Slice the body for display only. This never touches block attributes, so
-	// paginating the preview cannot corrupt the stored body (unlike feeding a
-	// sliced body into core/table's editable BlockEdit, which would write the
-	// visible slice back as the full body on the next cell edit).
-	let displayBody = Array.isArray( body ) ? body : [];
-	if ( showPagination ) {
-		const start = ( currentPage - 1 ) * effectiveRowsPerPage;
-		displayBody = displayBody.slice( start, start + effectiveRowsPerPage );
-	} else if ( displayBody.length > maxRows ) {
-		displayBody = displayBody.slice( 0, maxRows );
+	const maxRows = 100;
+	const totalRows = Array.isArray( body ) ? body.length : 0;
+	const isPaginationActive = commaSensePaginationEnabled !== false;
+	// Mirror the frontend: force pagination on when rows exceed the hard cap.
+	const forcePagination = ! isPaginationActive && totalRows > maxRows;
+	const effectiveRowsPerPage = forcePagination
+		? maxRows
+		: Math.min( commaSenseRowsPerPage || 25, maxRows );
+	const showPagination =
+		( isPaginationActive || forcePagination ) &&
+		totalRows > effectiveRowsPerPage;
+	const totalPages = Math.max(
+		1,
+		Math.ceil( totalRows / effectiveRowsPerPage )
+	);
+
+	// Slice the body for DISPLAY only, so the editor shows just the first page —
+	// matching the rows-per-page the frontend will show. This is safe even
+	// though the original data-loss bug was caused by a sliced body: the
+	// read-only guard drops every head/body write, so the slice can never be
+	// written back. The full body stays in the saved attributes untouched.
+	let editProps = props;
+	if ( Array.isArray( body ) ) {
+		let displayBody = body;
+		if ( showPagination ) {
+			displayBody = body.slice( 0, effectiveRowsPerPage );
+		} else if ( body.length > maxRows ) {
+			displayBody = body.slice( 0, maxRows );
+		}
+		if ( displayBody !== body ) {
+			editProps = {
+				...props,
+				attributes: { ...props.attributes, body: displayBody },
+			};
+		}
 	}
-
-	const paginationNav = showPagination ? (
-		<nav
-			className="comma-sense-pagination comma-sense-pagination--editor"
-			aria-label={ __( 'Table pagination', 'comma-sense' ) }
-		>
-			<Button
-				className="comma-sense-pagination__btn comma-sense-pagination__prev"
-				disabled={ currentPage === 1 }
-				onClick={ () => setCurrentPage( ( p ) => p - 1 ) }
-				aria-label={ __( 'Previous page', 'comma-sense' ) }
-			>
-				{ __( 'Previous', 'comma-sense' ) }
-			</Button>
-			<span className="comma-sense-pagination__pages">
-				{ Array.from( { length: totalPages }, ( _, i ) => i + 1 ).map(
-					( page ) => (
-						<Button
-							key={ page }
-							className={ `comma-sense-pagination__page${
-								page === currentPage
-									? ' comma-sense-pagination__page--active'
-									: ''
-							}` }
-							onClick={ () => setCurrentPage( page ) }
-							aria-current={
-								page === currentPage ? 'page' : undefined
-							}
-						>
-							{ page }
-						</Button>
-					)
-				) }
-			</span>
-			<Button
-				className="comma-sense-pagination__btn comma-sense-pagination__next"
-				disabled={ currentPage === totalPages }
-				onClick={ () => setCurrentPage( ( p ) => p + 1 ) }
-				aria-label={ __( 'Next page', 'comma-sense' ) }
-			>
-				{ __( 'Next', 'comma-sense' ) }
-			</Button>
-		</nav>
-	) : null;
 
 	return (
 		<>
-			<CommaSenseTablePreview
-				attributes={ props.attributes }
-				body={ displayBody }
-			>
-				{ paginationNav }
-			</CommaSenseTablePreview>
+			<BlockEdit { ...editProps } setAttributes={ readOnlySetAttributes } />
+			{ showPagination && (
+				<PaginationPlaceholder totalPages={ totalPages } />
+			) }
 			<CsvDataSourcePanel
 				attributes={ props.attributes }
 				setAttributes={ props.setAttributes }
@@ -716,11 +643,11 @@ const withCsvInspectorControls = createHigherOrderComponent( ( BlockEdit ) => {
 			return <BlockEdit { ...props } />;
 		}
 
-		// Attached variation: render our read-only preview (or placeholder)
-		// instead of core's editable BlockEdit. Detaching clears
+		// Attached variation: wrap core's real BlockEdit so it stays
+		// read-only while keeping every core control. Detaching clears
 		// commaSenseVariation, so the block falls through to the branch
 		// above and renders as an unmodified, fully editable core/table.
-		return <CommaTableEdit { ...props } />;
+		return <CommaTableEdit BlockEdit={ BlockEdit } { ...props } />;
 	};
 }, 'withCsvInspectorControls' );
 
@@ -728,4 +655,36 @@ addFilter(
 	'editor.BlockEdit',
 	'comma-sense/csv-inspector-controls',
 	withCsvInspectorControls
+);
+
+/**
+ * Add a `comma-sense-readonly` class to the block wrapper while a CSV is linked.
+ * The class makes the table cells pointer-transparent (see editor.scss) so
+ * clicks select the block instead of placing an editing caret — the visual half
+ * of the read-only behaviour. The data half is the setAttributes guard in
+ * CommaTableEdit.
+ */
+const withReadOnlyClass = createHigherOrderComponent( ( BlockListBlock ) => {
+	return ( props ) => {
+		const isAttached =
+			props.name === 'core/table' &&
+			props.attributes?.commaSenseVariation &&
+			props.attributes?.commaSenseCsvId > 0;
+
+		if ( ! isAttached ) {
+			return <BlockListBlock { ...props } />;
+		}
+
+		const className = [ props.className, 'comma-sense-readonly' ]
+			.filter( Boolean )
+			.join( ' ' );
+
+		return <BlockListBlock { ...props } className={ className } />;
+	};
+}, 'withReadOnlyClass' );
+
+addFilter(
+	'editor.BlockListBlock',
+	'comma-sense/readonly-class',
+	withReadOnlyClass
 );

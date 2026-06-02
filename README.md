@@ -33,6 +33,8 @@ Link any CSV from the WordPress Media Library to a core Table block. The first r
 
 Comma Sense is a block variation of `core/table`, not a custom block. That means full compatibility with everything you already rely on — alignment options, color settings, fixed layout, and any theme styles targeting the core Table block.
 
+Because the data comes from a CSV — a plain grid of values — per-cell table features that have no equivalent in a CSV are intentionally not applied: cell text alignment (`align`), and cell merging (`colspan`/`rowspan`). Block-level controls (alignment, color, border, typography, spacing) work as normal.
+
 ### Pagination
 
 Large tables paginate automatically to keep your pages performant and readable. Rows per page is configurable, with a cap of 100 visible rows per page. If pagination is disabled and the dataset exceeds that cap, it quietly re-enables itself.
