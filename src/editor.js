@@ -215,10 +215,18 @@ function CsvDataSourcePanel( { attributes, setAttributes, clientId } ) {
 		[ fetchAndParseCsv ]
 	);
 
-	const onUnlink = useCallback( () => {
+	// Detach from the CSV source: drop the variation flag so the block
+	// becomes a plain core/table, keeping the already-parsed head/body data.
+	// Clearing commaSenseVariation makes the HOC stop wrapping the block, and
+	// clearing commaSenseCsvId makes the render_block filter stop intercepting,
+	// so the full table renders statically from the saved markup.
+	const onDetach = useCallback( () => {
 		setAttributes( {
+			commaSenseVariation: false,
 			commaSenseCsvId: 0,
 			commaSenseFileName: '',
+			commaSensePaginationEnabled: true,
+			commaSenseRowsPerPage: 25,
 		} );
 	}, [ setAttributes ] );
 
@@ -331,9 +339,9 @@ function CsvDataSourcePanel( { attributes, setAttributes, clientId } ) {
 									variant="secondary"
 									size="compact"
 									isDestructive
-									onClick={ onUnlink }
+									onClick={ onDetach }
 								>
-									{ __( 'Unlink', 'comma-sense' ) }
+									{ __( 'Detach', 'comma-sense' ) }
 								</Button>
 							</div>
 						</div>
