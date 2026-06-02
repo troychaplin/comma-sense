@@ -59,15 +59,6 @@ registerBlockVariation( 'core/table', {
 	attributes: {
 		commaSenseVariation: true,
 		commaSenseCsvId: 0,
-		head: [
-			{
-				cells: [
-					{ content: '', tag: 'th' },
-					{ content: '', tag: 'th' },
-					{ content: '', tag: 'th' },
-				],
-			},
-		],
 	},
 	isActive: ( blockAttributes ) => {
 		return blockAttributes.commaSenseVariation === true;
