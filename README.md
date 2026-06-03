@@ -35,9 +35,15 @@ Comma Sense is a block variation of `core/table`, not a custom block. That means
 
 Because the data comes from a CSV — a plain grid of values — per-cell table features that have no equivalent in a CSV are intentionally not applied: cell text alignment (`align`), and cell merging (`colspan`/`rowspan`). Block-level controls (alignment, color, border, typography, spacing) work as normal.
 
+### Read-Only While Synced
+
+While a CSV is linked, the table is read-only in the editor — the CSV is the single source of truth, so cell edits can't silently drift from your data. All of the block's design controls (color, border, alignment, typography, spacing) still work normally. To hand-edit the table instead, click **Detach**: the block becomes a standard, fully editable Table block, keeping the imported data.
+
 ### Pagination
 
 Large tables paginate automatically to keep your pages performant and readable. Rows per page is configurable, with a cap of 100 visible rows per page. If pagination is disabled and the dataset exceeds that cap, it quietly re-enables itself.
+
+Pagination on the frontend is powered by the WordPress [Interactivity API](https://developer.wordpress.org/block-editor/reference-guides/interactivity-api/) and degrades gracefully: with JavaScript disabled, every row is shown and the controls are hidden, so no data is ever stuck behind a non-functional control.
 
 ### Accessible by Default
 
@@ -56,21 +62,22 @@ Frontend output is rendered dynamically from the linked CSV, with server-side tr
 
 1. Upload the `comma-sense` folder to `/wp-content/plugins/`
 2. Activate through the WordPress admin
-3. Add a Table block (or the Comma Sense variation) in the block editor
+3. Add a Table block, or search "CSV" in the inserter for the **Comma Sense** variation
 
 ## Usage
 
-1. Select a Table block in the editor
-2. Open the **Comma Sense** panel in the block inspector sidebar
-3. Click **Upload CSV** and select a file from the Media Library
-4. The table populates automatically
-5. Adjust **Rows per page** or toggle pagination as needed
-6. Hit **Refresh** anytime to re-sync from the linked CSV
-7. Use **Unlink** to disconnect the CSV and return to a standard table
+1. Insert a **Table** block, or search "CSV" in the inserter for the **Comma Sense** variation
+2. With the block selected, choose **Select CSV file** — from the upload placeholder in the block, or the **CSV Data Source** panel in the inspector sidebar — and pick a file from the Media Library
+3. The table populates automatically and stays read-only while synced
+4. Adjust **Rows per page** or toggle pagination in the **Pagination** panel
+5. **Refresh** re-syncs the editor preview from the linked file; **Replace** swaps in a different CSV
+6. **Detach** disconnects the CSV and returns the block to a standard, editable Table block
 
 ## Development
 
 Built with [`@wordpress/scripts`](https://developer.wordpress.org/block-editor/reference-guides/packages/packages-scripts/) and [PapaParse](https://www.papaparse.com/) for CSV parsing.
+
+The editor code (`src/`) is bundled by `@wordpress/scripts` into `build/`. The frontend pagination (`modules/view.js`) is a hand-authored Interactivity API ES module — it is **not** bundled; it is enqueued directly as a script module and resolves `@wordpress/interactivity` at runtime via WordPress's import map.
 
 ```bash
 # Install dependencies
