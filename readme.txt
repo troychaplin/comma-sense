@@ -1,9 +1,9 @@
-=== Comma Sense — CSV to Table Block Sync ===
+=== Comma Sense — Sync CSV to Table ===
 
 Contributors:      areziaal
 Tags:              csv, table, spreadsheet, block, data
 Requires at least: 6.5
-Tested up to:      6.8
+Tested up to:      7.0
 Requires PHP:      7.4
 Stable tag:        0.1.0
 License:           GPLv2 or later

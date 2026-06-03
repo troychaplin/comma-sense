@@ -68,24 +68,18 @@ class Comma_Sense_CSV_Handler {
 	 * @return array|WP_Error Parsed data or WP_Error.
 	 */
 	private static function read_csv( string $file_path ) {
-		$handle = fopen( $file_path, 'r' );
+		$contents = self::get_file_contents( $file_path );
 
-		if ( ! $handle ) {
-			return new WP_Error( 'file_open_error', __( 'Could not open CSV file.', 'comma-sense' ) );
+		if ( is_wp_error( $contents ) ) {
+			return $contents;
 		}
 
-		// Handle UTF-8 BOM.
-		$bom = fread( $handle, 3 );
-		if ( $bom !== "\xEF\xBB\xBF" ) {
-			rewind( $handle );
+		// Strip a UTF-8 BOM if present.
+		if ( 0 === strncmp( $contents, "\xEF\xBB\xBF", 3 ) ) {
+			$contents = substr( $contents, 3 );
 		}
 
-		$rows = array();
-		while ( ( $row = fgetcsv( $handle ) ) !== false ) {
-			$rows[] = $row;
-		}
-
-		fclose( $handle );
+		$rows = self::parse_csv_string( $contents );
 
 		if ( empty( $rows ) ) {
 			return new WP_Error( 'empty_file', __( 'CSV file is empty.', 'comma-sense' ) );
@@ -124,5 +118,125 @@ class Comma_Sense_CSV_Handler {
 			'head' => $head,
 			'body' => $body,
 		);
+	}
+
+	/**
+	 * Read a file's contents through the WordPress filesystem abstraction.
+	 *
+	 * Uses WP_Filesystem instead of direct PHP file handles (fopen/fread/fclose).
+	 * Reads are infrequent thanks to the transient cache in parse(), so
+	 * initialising WP_Filesystem here is inexpensive. On hosts where the
+	 * filesystem can't be accessed without credentials, this returns a WP_Error
+	 * and the caller falls back to the last-saved table markup.
+	 *
+	 * @param string $file_path Absolute path to the file.
+	 * @return string|WP_Error File contents, or WP_Error on failure.
+	 */
+	private static function get_file_contents( string $file_path ) {
+		global $wp_filesystem;
+
+		if ( ! $wp_filesystem ) {
+			if ( ! function_exists( 'WP_Filesystem' ) ) {
+				require_once ABSPATH . 'wp-admin/includes/file.php';
+			}
+			WP_Filesystem();
+		}
+
+		if ( ! $wp_filesystem || ! $wp_filesystem->exists( $file_path ) ) {
+			return new WP_Error( 'file_open_error', __( 'Could not open CSV file.', 'comma-sense' ) );
+		}
+
+		$contents = $wp_filesystem->get_contents( $file_path );
+
+		if ( false === $contents ) {
+			return new WP_Error( 'file_open_error', __( 'Could not open CSV file.', 'comma-sense' ) );
+		}
+
+		return $contents;
+	}
+
+	/**
+	 * Parse a CSV string into an array of row arrays.
+	 *
+	 * A small state machine that mirrors the parts of fgetcsv() we rely on —
+	 * comma delimiters, double-quoted fields, doubled quotes ("") as an escaped
+	 * literal quote, and embedded newlines inside quoted fields — without a file
+	 * handle. Both "\n" and "\r\n" (and a bare "\r") terminate a record.
+	 *
+	 * @param string $contents Raw CSV text (any BOM already stripped).
+	 * @return array[] List of rows, each a list of string field values.
+	 */
+	private static function parse_csv_string( string $contents ) {
+		$rows      = array();
+		$record    = array();
+		$field     = '';
+		$in_quotes = false;
+		$length    = strlen( $contents );
+		$dirty     = false; // Whether the current record has any content yet.
+
+		for ( $i = 0; $i < $length; $i++ ) {
+			$char = $contents[ $i ];
+
+			if ( $in_quotes ) {
+				if ( '"' === $char ) {
+					// A doubled quote ("") is an escaped literal quote.
+					if ( $i + 1 < $length && '"' === $contents[ $i + 1 ] ) {
+						$field .= '"';
+						$i++;
+					} else {
+						$in_quotes = false;
+					}
+				} else {
+					$field .= $char;
+				}
+				continue;
+			}
+
+			switch ( $char ) {
+				case '"':
+					$in_quotes = true;
+					$dirty     = true;
+					break;
+
+				case ',':
+					$record[] = $field;
+					$field    = '';
+					$dirty    = true;
+					break;
+
+				case "\r":
+					// Treat "\r\n" as a single line ending.
+					if ( $i + 1 < $length && "\n" === $contents[ $i + 1 ] ) {
+						$i++;
+					}
+					$record[] = $field;
+					$rows[]   = $record;
+					$record   = array();
+					$field    = '';
+					$dirty    = false;
+					break;
+
+				case "\n":
+					$record[] = $field;
+					$rows[]   = $record;
+					$record   = array();
+					$field    = '';
+					$dirty    = false;
+					break;
+
+				default:
+					$field .= $char;
+					$dirty  = true;
+					break;
+			}
+		}
+
+		// Flush a trailing record that wasn't terminated by a newline.
+		if ( $dirty || ! empty( $record ) || '' !== $field ) {
+			$record[] = $field;
+			$rows[]   = $record;
+		}
+
+		return $rows;
 	}
 }
