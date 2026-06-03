@@ -45,6 +45,11 @@ function comma_sense_render_block( $block_content, $block ) {
 		$rows_per_page      = 100;
 	}
 
+	// Pagination only renders (and rows only get hidden) when there is more than
+	// one page of data.
+	$show_pagination = $pagination_enabled && $total_rows > $rows_per_page;
+	$total_pages     = $show_pagination ? (int) ceil( $total_rows / $rows_per_page ) : 1;
+
 	// Build the fresh <thead>/<tbody> that will replace the saved table's inner
 	// content. We deliberately do NOT reconstruct the <figure>/<table> wrappers:
 	// keeping core's own opening tags preserves every class/style it applies
@@ -69,11 +74,23 @@ function comma_sense_render_block( $block_content, $block ) {
 	if ( ! empty( $body ) ) {
 		$sections_html .= '<tbody>';
 		foreach ( $body as $index => $row ) {
-			$hidden = '';
-			if ( $pagination_enabled && $index >= $rows_per_page ) {
-				$hidden = ' style="display:none" aria-hidden="true"';
+			$row_attrs = '';
+
+			if ( $show_pagination ) {
+				// Interactivity API: each row carries its index in context and
+				// binds `hidden`/`aria-hidden` to whether it falls outside the
+				// current page. The `hidden` attribute is also emitted up front
+				// for rows past the first page, so the initial (pre-hydration)
+				// render already shows only page one — no flash.
+				$row_attrs  = ' data-wp-context=\'{"rowIndex":' . (int) $index . '}\'';
+				$row_attrs .= ' data-wp-bind--hidden="state.isRowHidden"';
+				$row_attrs .= ' data-wp-bind--aria-hidden="state.isRowHidden"';
+				if ( $index >= $rows_per_page ) {
+					$row_attrs .= ' hidden';
+				}
 			}
-			$sections_html .= '<tr data-row-index="' . esc_attr( $index ) . '"' . $hidden . '>';
+
+			$sections_html .= '<tr' . $row_attrs . '>';
 			foreach ( $row['cells'] as $cell ) {
 				$tag     = $cell['tag'] ?? 'td';
 				$content = $cell['content'] ?? '';
@@ -106,44 +123,82 @@ function comma_sense_render_block( $block_content, $block ) {
 	}
 
 	// Ensure the figure carries the `comma-sense` class so the frontend styles
-	// and pagination script can scope to it. add_class() is a no-op if present.
+	// can scope to it. add_class() is a no-op if already present. When
+	// paginating, the figure is also the Interactivity API root: it holds the
+	// shared page state in context and the scroll watcher.
 	$processor = new WP_HTML_Tag_Processor( $new_content );
 	if ( $processor->next_tag( array( 'tag_name' => 'figure' ) ) ) {
 		$processor->add_class( 'comma-sense' );
+
+		if ( $show_pagination ) {
+			$processor->set_attribute( 'data-wp-interactive', 'comma-sense' );
+			$processor->set_attribute(
+				'data-wp-context',
+				wp_json_encode(
+					array(
+						'currentPage' => 1,
+						'rowsPerPage' => $rows_per_page,
+						'totalPages'  => $total_pages,
+						'totalRows'   => $total_rows,
+					)
+				)
+			);
+			$processor->set_attribute( 'data-wp-watch', 'callbacks.onPageChange' );
+		}
+
 		$new_content = $processor->get_updated_html();
 	}
 
-	// Render pagination controls and inject them just before </figure>.
-	if ( $pagination_enabled && $total_rows > $rows_per_page ) {
-		$total_pages = (int) ceil( $total_rows / $rows_per_page );
+	// Render pagination controls and inject them just before </figure>. Buttons
+	// carry Interactivity API directives; the initial disabled/active state is
+	// also rendered statically so it is correct before the module hydrates.
+	if ( $show_pagination ) {
+		$pagination_html = '<nav class="comma-sense-pagination" aria-label="' . esc_attr__( 'Table pagination', 'comma-sense' ) . '">';
 
-		$pagination_html  = '<nav class="comma-sense-pagination" aria-label="' . esc_attr__( 'Table pagination', 'comma-sense' ) . '"';
-		$pagination_html .= ' data-total-rows="' . esc_attr( $total_rows ) . '"';
-		$pagination_html .= ' data-rows-per-page="' . esc_attr( $rows_per_page ) . '"';
-		$pagination_html .= ' data-total-pages="' . esc_attr( $total_pages ) . '">';
-
-		$pagination_html .= '<button class="comma-sense-pagination__btn comma-sense-pagination__prev" disabled aria-label="' . esc_attr__( 'Previous page', 'comma-sense' ) . '">';
+		// Previous — disabled on page one initially; the directive keeps it in
+		// sync after hydration.
+		$pagination_html .= '<button class="comma-sense-pagination__btn comma-sense-pagination__prev"';
+		$pagination_html .= ' data-wp-on--click="actions.previous"';
+		$pagination_html .= ' data-wp-bind--disabled="state.isFirstPage"';
+		$pagination_html .= ' disabled aria-label="' . esc_attr__( 'Previous page', 'comma-sense' ) . '">';
 		$pagination_html .= esc_html__( 'Previous', 'comma-sense' );
 		$pagination_html .= '</button>';
 
 		$pagination_html .= '<span class="comma-sense-pagination__pages">';
 		for ( $i = 1; $i <= $total_pages; $i++ ) {
-			$active  = 1 === $i ? ' aria-current="page"' : '';
 			$classes = 'comma-sense-pagination__page';
+			$active  = '';
 			if ( 1 === $i ) {
 				$classes .= ' comma-sense-pagination__page--active';
+				$active   = ' aria-current="page"';
 			}
-			$pagination_html .= '<button class="' . esc_attr( $classes ) . '" data-page="' . esc_attr( $i ) . '"' . $active . '>';
+			$pagination_html .= '<button class="' . esc_attr( $classes ) . '"';
+			$pagination_html .= ' data-wp-context=\'{"page":' . $i . '}\'';
+			$pagination_html .= ' data-wp-on--click="actions.goToPage"';
+			$pagination_html .= ' data-wp-bind--aria-current="state.ariaCurrent"';
+			$pagination_html .= ' data-wp-class--comma-sense-pagination__page--active="state.isCurrentPage"';
+			$pagination_html .= $active . '>';
 			$pagination_html .= esc_html( $i );
 			$pagination_html .= '</button>';
 		}
 		$pagination_html .= '</span>';
 
-		$pagination_html .= '<button class="comma-sense-pagination__btn comma-sense-pagination__next" aria-label="' . esc_attr__( 'Next page', 'comma-sense' ) . '">';
+		$pagination_html .= '<button class="comma-sense-pagination__btn comma-sense-pagination__next"';
+		$pagination_html .= ' data-wp-on--click="actions.next"';
+		$pagination_html .= ' data-wp-bind--disabled="state.isLastPage"';
+		$pagination_html .= ' aria-label="' . esc_attr__( 'Next page', 'comma-sense' ) . '">';
 		$pagination_html .= esc_html__( 'Next', 'comma-sense' );
 		$pagination_html .= '</button>';
 
 		$pagination_html .= '</nav>';
+
+		// No-JS fallback: with scripting disabled the directives never run, so
+		// reveal every row (they ship with `hidden`) and hide the inert nav, so
+		// all CSV data stays accessible.
+		$pagination_html .= '<noscript><style>';
+		$pagination_html .= '.comma-sense tr[hidden]{display:table-row !important;}';
+		$pagination_html .= '.comma-sense-pagination{display:none !important;}';
+		$pagination_html .= '</style></noscript>';
 
 		$close_pos = strrpos( $new_content, '</figure>' );
 		if ( false !== $close_pos ) {
@@ -152,8 +207,8 @@ function comma_sense_render_block( $block_content, $block ) {
 			$new_content .= $pagination_html;
 		}
 
-		// Enqueue pagination JS only when needed.
-		comma_sense_enqueue_pagination_script();
+		// Enqueue the Interactivity API pagination module only when needed.
+		comma_sense_enqueue_pagination_module();
 	}
 
 	return $new_content;
@@ -163,30 +218,18 @@ function comma_sense_render_block( $block_content, $block ) {
 add_filter( 'render_block_core/table', 'comma_sense_render_block', 10, 2 );
 
 /**
- * Enqueue the pagination script on the frontend.
+ * Enqueue the Interactivity API pagination module on the frontend.
+ *
+ * Registered and enqueued in one call (idempotent — WordPress dedupes by id, so
+ * multiple Comma Sense tables on a page are fine). Declaring
+ * `@wordpress/interactivity` as a dependency makes WordPress emit the import map
+ * that resolves the module's bare import, and loads the runtime.
  */
-function comma_sense_enqueue_pagination_script() {
-	static $enqueued = false;
-
-	if ( $enqueued ) {
-		return;
-	}
-
-	$asset_file = COMMA_SENSE_DIR . 'build/pagination.asset.php';
-
-	if ( ! file_exists( $asset_file ) ) {
-		return;
-	}
-
-	$asset = require $asset_file;
-
-	wp_enqueue_script(
+function comma_sense_enqueue_pagination_module() {
+	wp_enqueue_script_module(
 		'comma-sense-pagination',
-		COMMA_SENSE_URL . 'build/pagination.js',
-		$asset['dependencies'],
-		$asset['version'],
-		true
+		COMMA_SENSE_URL . 'modules/view.js',
+		array( '@wordpress/interactivity' ),
+		COMMA_SENSE_VERSION
 	);
-
-	$enqueued = true;
 }
