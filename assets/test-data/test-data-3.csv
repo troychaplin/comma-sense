@@ -1,0 +1,151 @@
+ID,Hero Name,Real Name,Primary Villain,Company
+1,Spider-Man,Peter Parker,Green Goblin,Marvel
+2,Iron Man,Tony Stark,Mandarin,Marvel
+3,Captain America,Steve Rogers,Red Skull,Marvel
+4,Thor,Thor Odinson,Loki,Marvel
+5,Hulk,Bruce Banner,Abomination,Marvel
+6,Black Widow,Natasha Romanoff,Taskmaster,Marvel
+7,Hawkeye,Clint Barton,Trickshot,Marvel
+8,Doctor Strange,Stephen Strange,Dormammu,Marvel
+9,Black Panther,T'Challa,Killmonger,Marvel
+10,Captain Marvel,Carol Danvers,Yon-Rogg,Marvel
+11,Scarlet Witch,Wanda Maximoff,Agatha Harkness,Marvel
+12,Vision,Vision,Ultron,Marvel
+13,Ant-Man,Scott Lang,Yellowjacket,Marvel
+14,Wasp,Hope van Dyne,Ghost,Marvel
+15,Star-Lord,Peter Quill,Ego,Marvel
+16,Gamora,Gamora,Thanos,Marvel
+17,Rocket Raccoon,Rocket,High Evolutionary,Marvel
+18,Groot,Groot,High Evolutionary,Marvel
+19,Drax,Drax the Destroyer,Ronan,Marvel
+20,Daredevil,Matt Murdock,Kingpin,Marvel
+21,Punisher,Frank Castle,Jigsaw,Marvel
+22,Wolverine,Logan,Sabretooth,Marvel
+23,Cyclops,Scott Summers,Mister Sinister,Marvel
+24,Jean Grey,Jean Grey,Mastermind,Marvel
+25,Storm,Ororo Munroe,Shadow King,Marvel
+26,Beast,Hank McCoy,Magneto,Marvel
+27,Rogue,Anna Marie,Mystique,Marvel
+28,Gambit,Remy LeBeau,Mister Sinister,Marvel
+29,Nightcrawler,Kurt Wagner,Stryker,Marvel
+30,Professor X,Charles Xavier,Magneto,Marvel
+31,Deadpool,Wade Wilson,Ajax,Marvel
+32,Cable,Nathan Summers,Apocalypse,Marvel
+33,Colossus,Piotr Rasputin,Juggernaut,Marvel
+34,Iceman,Bobby Drake,Magneto,Marvel
+35,Jubilee,Jubilation Lee,Sentinels,Marvel
+36,Psylocke,Betsy Braddock,Shadow King,Marvel
+37,Silver Surfer,Norrin Radd,Galactus,Marvel
+38,Mister Fantastic,Reed Richards,Doctor Doom,Marvel
+39,Invisible Woman,Sue Storm,Doctor Doom,Marvel
+40,Human Torch,Johnny Storm,Doctor Doom,Marvel
+41,The Thing,Ben Grimm,Doctor Doom,Marvel
+42,Nova,Richard Rider,Annihilus,Marvel
+43,Moon Knight,Marc Spector,Bushman,Marvel
+44,Blade,Eric Brooks,Deacon Frost,Marvel
+45,Ghost Rider,Johnny Blaze,Mephisto,Marvel
+46,She-Hulk,Jennifer Walters,Titania,Marvel
+47,Falcon,Sam Wilson,Batroc,Marvel
+48,Winter Soldier,Bucky Barnes,Zemo,Marvel
+49,War Machine,James Rhodes,Justin Hammer,Marvel
+50,Spider-Woman,Jessica Drew,Morgan le Fay,Marvel
+51,Luke Cage,Carl Lucas,Diamondback,Marvel
+52,Iron Fist,Danny Rand,The Hand,Marvel
+53,Jessica Jones,Jessica Jones,Killgrave,Marvel
+54,Elektra,Elektra Natchios,Bullseye,Marvel
+55,Namor,Namor McKenzie,Attuma,Marvel
+56,Quicksilver,Pietro Maximoff,Magneto,Marvel
+57,Sentry,Robert Reynolds,The Void,Marvel
+58,Nick Fury,Nick Fury,Baron Strucker,Marvel
+59,Ms. Marvel,Kamala Khan,Inventor,Marvel
+60,Squirrel Girl,Doreen Green,Doctor Doom,Marvel
+61,Superman,Clark Kent,Lex Luthor,DC
+62,Batman,Bruce Wayne,Joker,DC
+63,Wonder Woman,Diana Prince,Ares,DC
+64,The Flash,Barry Allen,Reverse-Flash,DC
+65,Green Lantern,Hal Jordan,Sinestro,DC
+66,Aquaman,Arthur Curry,Black Manta,DC
+67,Cyborg,Victor Stone,Grid,DC
+68,Green Arrow,Oliver Queen,Merlyn,DC
+69,Martian Manhunter,J'onn J'onzz,Ma'alefa'ak,DC
+70,Shazam,Billy Batson,Black Adam,DC
+71,Nightwing,Dick Grayson,Blockbuster,DC
+72,Batgirl,Barbara Gordon,James Gordon Jr.,DC
+73,Robin,Tim Drake,Two-Face,DC
+74,Red Hood,Jason Todd,Joker,DC
+75,Supergirl,Kara Zor-El,Reign,DC
+76,Hawkman,Carter Hall,Gentleman Ghost,DC
+77,Hawkgirl,Kendra Saunders,Hath-Set,DC
+78,Black Canary,Dinah Lance,Count Vertigo,DC
+79,Zatanna,Zatanna Zatara,Brother Night,DC
+80,Constantine,John Constantine,Nergal,DC
+81,Booster Gold,Michael Carter,Mister Mind,DC
+82,Blue Beetle,Jaime Reyes,La Dama,DC
+83,Firestorm,Ronnie Raymond,Killer Frost,DC
+84,The Atom,Ray Palmer,Chronos,DC
+85,Plastic Man,Patrick O'Brian,Kite-Man,DC
+86,Captain Atom,Nathaniel Adam,Major Force,DC
+87,Doctor Fate,Kent Nelson,Wotan,DC
+88,Swamp Thing,Alec Holland,Anton Arcane,DC
+89,John Stewart,John Stewart,Fatality,DC
+90,Vixen,Mari McCabe,Aku Kwesi,DC
+91,Steel,John Henry Irons,Metallo,DC
+92,Static,Virgil Hawkins,Hotstreak,DC
+93,Beast Boy,Garfield Logan,Brother Blood,DC
+94,Raven,Rachel Roth,Trigon,DC
+95,Starfire,Koriand'r,Blackfire,DC
+96,Donna Troy,Donna Troy,Dark Angel,DC
+97,Wally West,Wally West,Zoom,DC
+98,Kid Flash,Bart Allen,Inertia,DC
+99,Power Girl,Karen Starr,Ultra-Humanite,DC
+100,Huntress,Helena Bertinelli,Mandragora,DC
+101,Catwoman,Selina Kyle,Black Mask,DC
+102,Batwoman,Kate Kane,Alice,DC
+103,Spoiler,Stephanie Brown,Cluemaster,DC
+104,Lobo,Lobo,Vril Dox,DC
+105,Hellboy,Anung un Rama,Rasputin,Dark Horse
+106,Spawn,Al Simmons,Malebolgia,Image
+107,Invincible,Mark Grayson,Conquest,Image
+108,Savage Dragon,Dragon,Overlord,Image
+109,The Tick,The Tick,Chairface Chippendale,New England Comics
+110,Judge Dredd,Joseph Dredd,Judge Death,Rebellion
+111,Hellblazer,John Constantine,First of the Fallen,DC
+112,The Crow,Eric Draven,Top Dollar,Caliber
+113,Witchblade,Sara Pezzini,Kenneth Irons,Top Cow
+114,Darkness,Jackie Estacado,Sonatine,Top Cow
+115,Madman,Frank Einstein,Mr. Monstadt,Image
+116,Hellcat,Patsy Walker,Black Cat,Marvel
+117,Mockingbird,Bobbi Morse,Phantom Rider,Marvel
+118,Falcon Cap,Joaquin Torres,Flag-Smasher,Marvel
+119,Miles Morales,Miles Morales,Prowler,Marvel
+120,Gwen Stacy,Gwen Stacy,Vulture,Marvel
+121,X-23,Laura Kinney,Kimura,Marvel
+122,Domino,Neena Thurman,Mr. Tolliver,Marvel
+123,Bishop,Lucas Bishop,Trevor Fitzroy,Marvel
+124,Forge,Forge,Adversary,Marvel
+125,Banshee,Sean Cassidy,Black Tom,Marvel
+126,Havok,Alex Summers,Vulcan,Marvel
+127,Polaris,Lorna Dane,Magneto,Marvel
+128,Sunfire,Shiro Yoshida,Silver Samurai,Marvel
+129,Dazzler,Alison Blaire,Mojo,Marvel
+130,Multiple Man,Jamie Madrox,Cortex,Marvel
+131,Wonder Man,Simon Williams,Zemo,Marvel
+132,Tigra,Greer Grant,Kraven,Marvel
+133,Mantis,Mantis,Ego,Marvel
+134,Adam Warlock,Adam Warlock,Magus,Marvel
+135,Beta Ray Bill,Beta Ray Bill,Surtur,Marvel
+136,Valkyrie,Brunnhilde,Hela,Marvel
+137,Heimdall,Heimdall,Loki,Marvel
+138,Captain Britain,Brian Braddock,Mad Jim Jaspers,Marvel
+139,Union Jack,Joseph Chapman,Baron Blood,Marvel
+140,Black Knight,Dane Whitman,Mordred,Marvel
+141,Hercules,Hercules,Typhon,Marvel
+142,Sersi,Sersi,Kro,Marvel
+143,Ikaris,Ikaris,Kro,Marvel
+144,The Spirit,Denny Colt,The Octopus,Quality Comics
+145,Phantom,Kit Walker,Singh Brotherhood,King Features
+146,Rorschach,Walter Kovacs,Ozymandias,DC
+147,Nite Owl,Daniel Dreiberg,Ozymandias,DC
+148,Doctor Manhattan,Jon Osterman,Ozymandias,DC
+149,The Comedian,Edward Blake,Ozymandias,DC
+150,Atom Eve,Samantha Eve Wilkins,Conquest,Image

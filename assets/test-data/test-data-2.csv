@@ -1,0 +1,13 @@
+ID,Name,Category,Release Date,Monthly Price
+1,Visual Studio Code,Code Editor,2024-01-15,0.00
+2,JetBrains IntelliJ IDEA,IDE,2024-02-03,16.90
+3,Vim,Code Editor,2024-02-21,0.00
+4,Postman,API Testing,2024-03-10,12.00
+5,Docker Desktop,Containerization,2024-03-28,9.00
+6,GitHub Copilot,AI Assistant,2024-04-05,10.00
+7,Sublime Text,Code Editor,2024-04-19,8.00
+8,Sentry,Error Monitoring,2024-05-02,26.00
+9,Datadog,Observability,2024-05-17,15.00
+10,Insomnia,API Testing,2024-06-01,0.00
+11,GitLab,DevOps Platform,2024-06-14,29.00
+12,Terraform Cloud,Infrastructure,2024-06-30,20.00
