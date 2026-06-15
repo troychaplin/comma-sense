@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       Comma Sense — Sync CSV to Table
  * Description:       A variation of the core table block that syncs data from CSV files.
- * Version:           0.1.0
+ * Version:           1.0.0
  * Requires at least: 6.5
  * Requires PHP:      7.4
  * Author:            Troy Chaplin
@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'COMMA_SENSE_VERSION', '0.1.0' );
+define( 'COMMA_SENSE_VERSION', '1.0.0' );
 define( 'COMMA_SENSE_DIR', plugin_dir_path( __FILE__ ) );
 define( 'COMMA_SENSE_URL', plugin_dir_url( __FILE__ ) );
 
