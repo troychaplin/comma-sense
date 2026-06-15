@@ -8,8 +8,9 @@
  * All table rows are present in the DOM. Visibility is driven declaratively
  * from per-<figure> context state (currentPage / rowsPerPage / totalPages):
  * each row binds its `hidden` attribute to whether it falls outside the current
- * page window. The server renders the first-page state up front (rows past page
- * one ship with `hidden`), so there is no flash before this module hydrates.
+ * page window. Rows are visible by default (progressive enhancement); the store
+ * applies `hidden` after hydration. The pagination nav ships with `hidden` and
+ * is revealed by the isPaginationHidden getter once the store hydrates.
  */
 
 import { store, getContext, getElement } from '@wordpress/interactivity';
@@ -29,6 +30,11 @@ const { state } = store( 'comma-sense', {
 			const { rowIndex, currentPage, rowsPerPage } = getContext();
 			const start = ( currentPage - 1 ) * rowsPerPage;
 			return rowIndex < start || rowIndex >= start + rowsPerPage;
+		},
+
+		/** Always false — removes the `hidden` attribute from the nav after hydration. */
+		get isPaginationHidden() {
+			return false;
 		},
 
 		get isFirstPage() {

@@ -79,15 +79,11 @@ function comma_sense_render_block( $block_content, $block ) {
 			if ( $show_pagination ) {
 				// Interactivity API: each row carries its index in context and
 				// binds `hidden`/`aria-hidden` to whether it falls outside the
-				// current page. The `hidden` attribute is also emitted up front
-				// for rows past the first page, so the initial (pre-hydration)
-				// render already shows only page one — no flash.
+				// current page. Rows are visible by default (progressive
+				// enhancement); the store applies `hidden` after hydration.
 				$row_attrs  = ' data-wp-context=\'{"rowIndex":' . (int) $index . '}\'';
 				$row_attrs .= ' data-wp-bind--hidden="state.isRowHidden"';
 				$row_attrs .= ' data-wp-bind--aria-hidden="state.isRowHidden"';
-				if ( $index >= $rows_per_page ) {
-					$row_attrs .= ' hidden';
-				}
 			}
 
 			$sections_html .= '<tr' . $row_attrs . '>';
@@ -153,7 +149,11 @@ function comma_sense_render_block( $block_content, $block ) {
 	// carry Interactivity API directives; the initial disabled/active state is
 	// also rendered statically so it is correct before the module hydrates.
 	if ( $show_pagination ) {
-		$pagination_html = '<nav class="comma-sense-pagination" aria-label="' . esc_attr__( 'Table pagination', 'comma-sense' ) . '">';
+		// The nav ships hidden; the Interactivity API removes `hidden` after
+		// hydration via state.isPaginationHidden. Without JS the nav stays
+		// hidden and all rows remain visible — no <noscript> block needed.
+		$pagination_html = '<nav class="comma-sense-pagination" hidden aria-label="' . esc_attr__( 'Table pagination', 'comma-sense' ) . '"';
+		$pagination_html .= ' data-wp-bind--hidden="state.isPaginationHidden">';
 
 		// Previous — disabled on page one initially; the directive keeps it in
 		// sync after hydration.
@@ -191,14 +191,6 @@ function comma_sense_render_block( $block_content, $block ) {
 		$pagination_html .= '</button>';
 
 		$pagination_html .= '</nav>';
-
-		// No-JS fallback: with scripting disabled the directives never run, so
-		// reveal every row (they ship with `hidden`) and hide the inert nav, so
-		// all CSV data stays accessible.
-		$pagination_html .= '<noscript><style>';
-		$pagination_html .= '.comma-sense tr[hidden]{display:table-row !important;}';
-		$pagination_html .= '.comma-sense-pagination{display:none !important;}';
-		$pagination_html .= '</style></noscript>';
 
 		$close_pos = strrpos( $new_content, '</figure>' );
 		if ( false !== $close_pos ) {
